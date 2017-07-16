@@ -14,18 +14,29 @@ document.addEventListener("keyup", keyUp, false);
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
-const PLR_BOT_DEG = 65;		//bottom angle of player triangle
+const PLR_BOT_DEG = 55;		//bottom angle of player triangle
 const PLR_TOP_Y_OFFSET = 10;
-const PLR_BOT_Y_OFFSET = 30;
+const PLR_BOT_Y_OFFSET = 10;
+
+const PLR_ROT_SPEED = 1.5;
+const PLR_SPEED = 0.1;
+const PLR_SPEED_DECAY = 0.01;
+const PLR_MAX_SPEED = 2;
+
+const PROJ_RADIUS = 2;
+const PROJ_START_DIST = 5;
+const PROJ_SPEED = 3;
 
 //global variables
 var socket = io.connect("http://localhost:3000");
 var leftPressed = false;
 var upPressed = false;
 var rightPressed = false;
-var downPressed = false;
+var spacebarPressed = false;
+//var downPressed = false;
 var plr1;
 var plr2;
+var projectiles = [];
 
 //classes
 
@@ -37,6 +48,7 @@ function Player(isControlled) {
 	this.locY = HEIGHT / 2;
 	
 	//facing direction
+	this.headingDeg = 0;
 	this.thetaDeg = 0;
 	
 	//starting triangle points
@@ -62,12 +74,16 @@ function Player(isControlled) {
 	this.velY = 0;
 	
 	this.updateMovement = function() {
+		//rotation
+		
 		if (leftPressed) {
 			//rotate left
-			this.thetaDeg -= 1;
+			this.thetaDeg -= PLR_ROT_SPEED;
+			this.headingDeg -= PLR_ROT_SPEED;
 		} else if (rightPressed) {
 			//rotate right
-			this.thetaDeg += 1;
+			this.thetaDeg += PLR_ROT_SPEED;
+			this.headingDeg += PLR_ROT_SPEED;
 		}
 		
 		//perform rotation transformation
@@ -83,6 +99,102 @@ function Player(isControlled) {
 		this.rightPointY = rightPoint[1] + this.locY;
 		
 		this.thetaDeg = 0;
+		
+		//movement
+		
+		var headingRad = degToRad(this.headingDeg);
+		var forwardSpeed = 0;
+		if (upPressed) {
+			//move forward
+			forwardSpeed = 1;
+		}
+		/*else if (downPressed) {
+			//move backward
+			forwardSpeed = -1;
+		}
+		*/
+		
+		//speed decay
+		//var velAngleRad = Math.atan(this.velY / this.velX);
+		if (this.velX != 0) {
+			if (this.velX > 0) {
+				//going right
+				this.velX -= PLR_SPEED_DECAY;
+				//this.velX -= PLR_SPEED_DECAY * Math.cos(velAngleRad);
+				if (this.velX < 0) {
+					this.velX = 0;
+				}
+			} else {
+				//going left
+				this.velX += PLR_SPEED_DECAY;
+				//this.velX += PLR_SPEED_DECAY * Math.cos(velAngleRad);
+				if (this.velX > 0) {
+					this.velX = 0;
+				}
+			}
+		}
+		
+		if (this.velY != 0) {
+			if (this.velY > 0) {
+				//going down
+				this.velY -= PLR_SPEED_DECAY;
+				//this.velY += PLR_SPEED_DECAY * Math.sin(velAngleRad);
+				if (this.velY < 0) {
+					this.velY = 0;
+				}
+			} else {
+				//going up
+				this.velY += PLR_SPEED_DECAY;
+				//this.velY -= PLR_SPEED_DECAY * Math.sin(velAngleRad);
+				if (this.velY > 0) {
+					this.velY = 0;
+				}
+			}
+		}
+		
+		//update velocity
+		this.velX += PLR_SPEED * forwardSpeed * Math.sin(headingRad);
+		this.velY -= PLR_SPEED * forwardSpeed * Math.cos(headingRad);
+		
+		if (Math.abs(this.velX) > PLR_MAX_SPEED) {
+			this.velX = PLR_MAX_SPEED * (this.velX / Math.abs(this.velX));
+		}
+		
+		if (Math.abs(this.velY) > PLR_MAX_SPEED) {
+			this.velY = PLR_MAX_SPEED * (this.velY / Math.abs(this.velY));
+		}
+		
+		//update position
+		this.translate(this.velX, this.velY);
+		
+		//handle border collision
+		if (this.locX < 0) {
+			//left border
+			this.translate(WIDTH, 0);
+		} else if (this.locX > WIDTH) {
+			//right border
+			this.translate(-WIDTH, 0);
+		}
+		
+		if (this.locY < 0) {
+			//top border
+			this.translate(0, HEIGHT);
+		} else if (this.locY > HEIGHT) {
+			//bottom border
+			this.translate(0, -HEIGHT);
+		}
+	}
+	
+	this.translate = function(x, y) {
+		this.locX += x;
+		this.topPointX += x;
+		this.leftPointX += x;
+		this.rightPointX += x;
+		
+		this.locY += y;
+		this.topPointY += y;
+		this.leftPointY += y;
+		this.rightPointY += y;
 	}
 	
 	this.draw = function() {
@@ -91,6 +203,38 @@ function Player(isControlled) {
 		ctx.lineTo(this.leftPointX, this.leftPointY);
 		ctx.lineTo(this.rightPointX, this.rightPointY);
 		ctx.lineTo(this.topPointX, this.topPointY);
+		ctx.stroke();
+	}
+	
+	this.shoot = function() {
+		if (spacebarPressed) {
+			spacebarPressed = false;
+			var x = PROJ_START_DIST * Math.cos(degToRad(this.headingDeg)) + this.topPointX;
+			var y = PROJ_START_DIST * Math.sin(degToRad(this.headingDeg)) + this.topPointY;
+			proj = new Projectile(x, y, this.headingDeg);
+			projectiles.push(proj);
+		}
+	}
+}
+
+function Projectile(locX, locY, headingDeg) {
+	this.locX = locX;
+	this.locY = locY;
+	this.radius = PROJ_RADIUS;
+	
+	var headingRad = degToRad(headingDeg);
+	
+	this.velX = PROJ_SPEED * Math.cos(headingRad - Math.PI / 2);
+	this.velY = PROJ_SPEED * Math.sin(headingRad - Math.PI / 2);
+	
+	this.updateMovement = function() {
+		this.locX += this.velX;
+		this.locY += this.velY;
+	}
+	
+	this.draw = function() {
+		ctx.beginPath();
+		ctx.arc(this.locX, this.locY, this.radius, 0, 2 * Math.PI);
 		ctx.fill();
 	}
 }
@@ -104,9 +248,16 @@ function start() {
 }
 
 function game() {
-	//update player movements
+	//update
 	plr1.updateMovement();
 	//plr2.updateMovement();
+	
+	plr1.shoot();
+	//plr2.shoot();
+	
+	for (var i = 0; i < projectiles.length; ++i) {
+		projectiles[i].updateMovement();
+	}
 	
 	//update draw
 	draw();
@@ -114,15 +265,21 @@ function game() {
 
 function draw() {
 	//clear screen
-	ctx.clearRect(0, 0, WIDTH, HEIGHT);
+	ctx.fillStyle = "#000000";
+	ctx.fillRect(0, 0, WIDTH, HEIGHT);
 	
 	//draw players
+	ctx.strokeStyle = "#FFFFFF";
 	plr1.draw();
 	//plr2.draw();
 	
 	//draw asteroids
 	
 	//draw projectiles
+	ctx.fillStyle = "#FFFF00";
+	for (var i = 0; i < projectiles.length; ++i) {
+		projectiles[i].draw();
+	}
 	
 	//draw alien
 	
@@ -140,7 +297,10 @@ function keyDown(evt) {
 		rightPressed = true;
 	} else if (evt.keyCode == 40 || evt.keyCode == 83) {
 		//down arrow or s
-		downPressed = true;
+		//downPressed = true;
+	} else if (evt.keyCode == 32) {
+		//spacebar
+		spacebarPressed = true;
 	}
 }
 
@@ -156,7 +316,10 @@ function keyUp(evt) {
 		rightPressed = false;
 	} else if (evt.keyCode == 40 || evt.keyCode == 83) {
 		//down arrow or s
-		downPressed = false;
+		//downPressed = false;
+	} else if (evt.keyCode == 32) {
+		//spacebar
+		spacebarPressed = false;
 	}
 }
 

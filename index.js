@@ -19,6 +19,8 @@ app.use(express.static("public"));
 //socket setup
 var io = socket(server);
 
+var asteroids = [];
+
 io.on("connection", function() {
 	console.log("a user connnected");
 	
