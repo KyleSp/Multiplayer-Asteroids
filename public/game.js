@@ -31,13 +31,25 @@ const PROJ_TIME = 2000;
 //global variables
 var socket = io.connect("http://localhost:3000");
 var playerNum = 0;
+var otherPlayerNum = 0;
 var gameStarted = false;
+
+//from other player
+var otherPoints = {
+	topPointX: 0,
+	topPointY: 0,
+	leftPointX: 0,
+	leftPointY: 0,
+	rightPointX: 0,
+	rightPointY: 0
+};
 
 var leftPressed = false;
 var upPressed = false;
 var rightPressed = false;
 var spacebarPressed = false;
 //var downPressed = false;
+
 var plr1;
 var plr2;
 var projectiles = [];
@@ -78,114 +90,133 @@ function Player(isControlled) {
 	this.velY = 0;
 	
 	this.updateMovement = function() {
-		//rotation
-		
-		if (leftPressed) {
-			//rotate left
-			this.thetaDeg -= PLR_ROT_SPEED;
-			this.headingDeg -= PLR_ROT_SPEED;
-		} else if (rightPressed) {
-			//rotate right
-			this.thetaDeg += PLR_ROT_SPEED;
-			this.headingDeg += PLR_ROT_SPEED;
-		}
-		
-		//perform rotation transformation
-		var thetaRad = degToRad(this.thetaDeg);
-		var topPoint = rotationMatrix(this.topPointX - this.locX, this.topPointY - this.locY, thetaRad);
-		this.topPointX = topPoint[0] + this.locX;
-		this.topPointY = topPoint[1] + this.locY;
-		var leftPoint = rotationMatrix(this.leftPointX - this.locX, this.leftPointY - this.locY, thetaRad);
-		this.leftPointX = leftPoint[0] + this.locX;
-		this.leftPointY = leftPoint[1] + this.locY;
-		var rightPoint = rotationMatrix(this.rightPointX - this.locX, this.rightPointY - this.locY, thetaRad);
-		this.rightPointX = rightPoint[0] + this.locX;
-		this.rightPointY = rightPoint[1] + this.locY;
-		
-		this.thetaDeg = 0;
-		
-		//movement
-		
-		var headingRad = degToRad(this.headingDeg);
-		var forwardSpeed = 0;
-		if (upPressed) {
-			//move forward
-			forwardSpeed = 1;
-		}
-		/*else if (downPressed) {
-			//move backward
-			forwardSpeed = -1;
-		}
-		*/
-		
-		//speed decay
-		//var velAngleRad = Math.atan(this.velY / this.velX);
-		if (this.velX != 0) {
-			if (this.velX > 0) {
-				//going right
-				this.velX -= PLR_SPEED_DECAY;
-				//this.velX -= PLR_SPEED_DECAY * Math.cos(velAngleRad);
-				if (this.velX < 0) {
-					this.velX = 0;
-				}
-			} else {
-				//going left
-				this.velX += PLR_SPEED_DECAY;
-				//this.velX += PLR_SPEED_DECAY * Math.cos(velAngleRad);
+		if (this.isControlled) {
+			//rotation
+			
+			if (leftPressed) {
+				//rotate left
+				this.thetaDeg -= PLR_ROT_SPEED;
+				this.headingDeg -= PLR_ROT_SPEED;
+			} else if (rightPressed) {
+				//rotate right
+				this.thetaDeg += PLR_ROT_SPEED;
+				this.headingDeg += PLR_ROT_SPEED;
+			}
+			
+			//perform rotation transformation
+			var thetaRad = degToRad(this.thetaDeg);
+			var topPoint = rotationMatrix(this.topPointX - this.locX, this.topPointY - this.locY, thetaRad);
+			this.topPointX = topPoint[0] + this.locX;
+			this.topPointY = topPoint[1] + this.locY;
+			var leftPoint = rotationMatrix(this.leftPointX - this.locX, this.leftPointY - this.locY, thetaRad);
+			this.leftPointX = leftPoint[0] + this.locX;
+			this.leftPointY = leftPoint[1] + this.locY;
+			var rightPoint = rotationMatrix(this.rightPointX - this.locX, this.rightPointY - this.locY, thetaRad);
+			this.rightPointX = rightPoint[0] + this.locX;
+			this.rightPointY = rightPoint[1] + this.locY;
+			
+			this.thetaDeg = 0;
+			
+			//movement
+			
+			var headingRad = degToRad(this.headingDeg);
+			var forwardSpeed = 0;
+			if (upPressed) {
+				//move forward
+				forwardSpeed = 1;
+			}
+			/*else if (downPressed) {
+				//move backward
+				forwardSpeed = -1;
+			}
+			*/
+			
+			//speed decay
+			//var velAngleRad = Math.atan(this.velY / this.velX);
+			if (this.velX != 0) {
 				if (this.velX > 0) {
-					this.velX = 0;
+					//going right
+					this.velX -= PLR_SPEED_DECAY;
+					//this.velX -= PLR_SPEED_DECAY * Math.cos(velAngleRad);
+					if (this.velX < 0) {
+						this.velX = 0;
+					}
+				} else {
+					//going left
+					this.velX += PLR_SPEED_DECAY;
+					//this.velX += PLR_SPEED_DECAY * Math.cos(velAngleRad);
+					if (this.velX > 0) {
+						this.velX = 0;
+					}
 				}
 			}
-		}
-		
-		if (this.velY != 0) {
-			if (this.velY > 0) {
-				//going down
-				this.velY -= PLR_SPEED_DECAY;
-				//this.velY += PLR_SPEED_DECAY * Math.sin(velAngleRad);
-				if (this.velY < 0) {
-					this.velY = 0;
-				}
-			} else {
-				//going up
-				this.velY += PLR_SPEED_DECAY;
-				//this.velY -= PLR_SPEED_DECAY * Math.sin(velAngleRad);
+			
+			if (this.velY != 0) {
 				if (this.velY > 0) {
-					this.velY = 0;
+					//going down
+					this.velY -= PLR_SPEED_DECAY;
+					//this.velY += PLR_SPEED_DECAY * Math.sin(velAngleRad);
+					if (this.velY < 0) {
+						this.velY = 0;
+					}
+				} else {
+					//going up
+					this.velY += PLR_SPEED_DECAY;
+					//this.velY -= PLR_SPEED_DECAY * Math.sin(velAngleRad);
+					if (this.velY > 0) {
+						this.velY = 0;
+					}
 				}
 			}
-		}
-		
-		//update velocity
-		this.velX += PLR_SPEED * forwardSpeed * Math.sin(headingRad);
-		this.velY -= PLR_SPEED * forwardSpeed * Math.cos(headingRad);
-		
-		if (Math.abs(this.velX) > PLR_MAX_SPEED) {
-			this.velX = PLR_MAX_SPEED * (this.velX / Math.abs(this.velX));
-		}
-		
-		if (Math.abs(this.velY) > PLR_MAX_SPEED) {
-			this.velY = PLR_MAX_SPEED * (this.velY / Math.abs(this.velY));
-		}
-		
-		//update position
-		this.translate(this.velX, this.velY);
-		
-		//handle border collision
-		if (this.locX < 0) {
-			//left border
-			this.translate(WIDTH, 0);
-		} else if (this.locX > WIDTH) {
-			//right border
-			this.translate(-WIDTH, 0);
-		}
-		
-		if (this.locY < 0) {
-			//top border
-			this.translate(0, HEIGHT);
-		} else if (this.locY > HEIGHT) {
-			//bottom border
-			this.translate(0, -HEIGHT);
+			
+			//update velocity
+			this.velX += PLR_SPEED * forwardSpeed * Math.sin(headingRad);
+			this.velY -= PLR_SPEED * forwardSpeed * Math.cos(headingRad);
+			
+			if (Math.abs(this.velX) > PLR_MAX_SPEED) {
+				this.velX = PLR_MAX_SPEED * (this.velX / Math.abs(this.velX));
+			}
+			
+			if (Math.abs(this.velY) > PLR_MAX_SPEED) {
+				this.velY = PLR_MAX_SPEED * (this.velY / Math.abs(this.velY));
+			}
+			
+			//update position
+			this.translate(this.velX, this.velY);
+			
+			//handle border collision
+			if (this.locX < 0) {
+				//left border
+				this.translate(WIDTH, 0);
+			} else if (this.locX > WIDTH) {
+				//right border
+				this.translate(-WIDTH, 0);
+			}
+			
+			if (this.locY < 0) {
+				//top border
+				this.translate(0, HEIGHT);
+			} else if (this.locY > HEIGHT) {
+				//bottom border
+				this.translate(0, -HEIGHT);
+			}
+			
+			//output other player's points to server
+			socket.emit("otherPoints_" + playerNum, {
+				topPointX: this.topPointX,
+				topPointY: this.topPointY,
+				leftPointX: this.leftPointX,
+				leftPointY: this.leftPointY,
+				rightPointX: this.rightPointX,
+				rightPointY: this.rightPointY
+			});
+		} else {
+			this.topPointX = otherPoints.topPointX;
+			this.topPointY = otherPoints.topPointY;
+			this.leftPointX = otherPoints.leftPointX;
+			this.leftPointY = otherPoints.leftPointY;
+			this.rightPointX = otherPoints.rightPointX;
+			this.rightPointY = otherPoints.rightPointY;
 		}
 	}
 	
@@ -235,7 +266,6 @@ function Projectile(locX, locY, headingDeg) {
 	
 	var self = this;
 	setTimeout(function() {
-		console.log("hide proj!");
 		self.visible = false;
 	}, PROJ_TIME);
 	
@@ -274,23 +304,10 @@ function Projectile(locX, locY, headingDeg) {
 
 //functions
 function start() {
-	//plr1 = new Player(true);
-	//plr2 = new Player(false);
-	
 	setInterval(game, 10);
 }
 
 function game() {
-	/*
-	if (numPlayers == 2 && !gameStarted) {
-		gameStarted = true;
-		plr1 = new Player(true);
-		plr2 = new Player(false);
-	} else {
-		return;
-	}
-	*/
-	
 	if ((playerNum == 1 || playerNum == 2)) {
 		if (!gameStarted) {
 			gameStarted = true;
@@ -312,22 +329,6 @@ function game() {
 			draw();
 		}
 	}
-	
-	/*
-	//update
-	plr1.updateMovement();
-	plr2.updateMovement();
-	
-	plr1.shoot();
-	plr2.shoot();
-	
-	for (var i = 0; i < projectiles.length; ++i) {
-		projectiles[i].updateMovement();
-	}
-	
-	//update draw
-	draw();
-	*/
 }
 
 function draw() {
@@ -403,14 +404,23 @@ function rotationMatrix(x, y, thetaRad) {
 
 //start game
 
+//get player's number
 socket.on("playerNum", function(num) {
 	playerNum = num;
 });
 
-/*
-socket.on("connectToRoom", function(data) {
-	console.log(data);
+//get other player's points from server
+socket.on("otherPoints_1", function(data) {
+	if (playerNum == 2) {
+		otherPoints = data;
+	}
 });
-*/
+
+socket.on("otherPoints_2", function(data) {
+	if (playerNum == 1) {
+		otherPoints = data;
+	}
+});
+
 
 start();

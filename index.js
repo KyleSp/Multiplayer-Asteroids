@@ -35,7 +35,10 @@ io.on("connection", function(socket) {
 	
 	socket.emit("playerNum", playerNum);
 	
-	//io.sockets.in("room_" + roomNum).emit("connectToRoom", "You are in room num " + roomNum);
+	//output data to other client in room
+	socket.on("otherPoints_" + playerNum, function(data) {
+		io.sockets.in("room_" + roomNum).emit("otherPoints_" + playerNum, data);
+	});
 	
 	var rNum = roomNum;
 	socket.on("disconnect", function() {
