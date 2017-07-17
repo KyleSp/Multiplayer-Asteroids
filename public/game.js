@@ -26,9 +26,13 @@ const PLR_MAX_SPEED = 2;
 const PROJ_RADIUS = 2;
 const PROJ_START_DIST = 5;
 const PROJ_SPEED = 3;
+const PROJ_TIME = 2000;
 
 //global variables
 var socket = io.connect("http://localhost:3000");
+var playerNum = 0;
+var gameStarted = false;
+
 var leftPressed = false;
 var upPressed = false;
 var rightPressed = false;
@@ -222,38 +226,100 @@ function Projectile(locX, locY, headingDeg) {
 	this.locY = locY;
 	this.radius = PROJ_RADIUS;
 	
+	this.visible = true;
+	
 	var headingRad = degToRad(headingDeg);
 	
 	this.velX = PROJ_SPEED * Math.cos(headingRad - Math.PI / 2);
 	this.velY = PROJ_SPEED * Math.sin(headingRad - Math.PI / 2);
 	
+	var self = this;
+	setTimeout(function() {
+		console.log("hide proj!");
+		self.visible = false;
+	}, PROJ_TIME);
+	
 	this.updateMovement = function() {
-		this.locX += this.velX;
-		this.locY += this.velY;
+		if (this.visible) {
+			this.locX += this.velX;
+			this.locY += this.velY;
+			
+			//handle border collision
+			if (this.locX < 0) {
+				//left border
+				this.locX += WIDTH;
+			} else if (this.locX > WIDTH) {
+				//right border
+				this.locX -= WIDTH;
+			}
+			
+			if (this.locY < 0) {
+				//top border
+				this.locY += HEIGHT;
+			} else if (this.locY > HEIGHT) {
+				//bottom border
+				this.locY -= HEIGHT;
+			}
+		}
 	}
 	
 	this.draw = function() {
-		ctx.beginPath();
-		ctx.arc(this.locX, this.locY, this.radius, 0, 2 * Math.PI);
-		ctx.fill();
+		if (this.visible) {
+			ctx.beginPath();
+			ctx.arc(this.locX, this.locY, this.radius, 0, 2 * Math.PI);
+			ctx.fill();
+		}
 	}
 }
 
 //functions
 function start() {
-	plr1 = new Player(true);
-	plr2 = new Player(false);
+	//plr1 = new Player(true);
+	//plr2 = new Player(false);
 	
 	setInterval(game, 10);
 }
 
 function game() {
+	/*
+	if (numPlayers == 2 && !gameStarted) {
+		gameStarted = true;
+		plr1 = new Player(true);
+		plr2 = new Player(false);
+	} else {
+		return;
+	}
+	*/
+	
+	if ((playerNum == 1 || playerNum == 2)) {
+		if (!gameStarted) {
+			gameStarted = true;
+			plr1 = new Player(playerNum == 1);
+			plr2 = new Player(playerNum == 2);
+		} else {
+			//update
+			plr1.updateMovement();
+			plr2.updateMovement();
+			
+			plr1.shoot();
+			plr2.shoot();
+			
+			for (var i = 0; i < projectiles.length; ++i) {
+				projectiles[i].updateMovement();
+			}
+			
+			//update draw
+			draw();
+		}
+	}
+	
+	/*
 	//update
 	plr1.updateMovement();
-	//plr2.updateMovement();
+	plr2.updateMovement();
 	
 	plr1.shoot();
-	//plr2.shoot();
+	plr2.shoot();
 	
 	for (var i = 0; i < projectiles.length; ++i) {
 		projectiles[i].updateMovement();
@@ -261,6 +327,7 @@ function game() {
 	
 	//update draw
 	draw();
+	*/
 }
 
 function draw() {
@@ -271,7 +338,7 @@ function draw() {
 	//draw players
 	ctx.strokeStyle = "#FFFFFF";
 	plr1.draw();
-	//plr2.draw();
+	plr2.draw();
 	
 	//draw asteroids
 	
@@ -335,4 +402,15 @@ function rotationMatrix(x, y, thetaRad) {
 }
 
 //start game
+
+socket.on("playerNum", function(num) {
+	playerNum = num;
+});
+
+/*
+socket.on("connectToRoom", function(data) {
+	console.log(data);
+});
+*/
+
 start();
