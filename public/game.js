@@ -26,6 +26,8 @@ const PLR_MAX_SPEED = 2;
 const PROJ_RADIUS = 2;
 const PROJ_START_DIST = 5;
 
+const AST_RADIUS = 40;
+
 //global variables
 var socket = io.connect("http://localhost:3000");
 var playerNum = 0;
@@ -51,6 +53,7 @@ var spacebarPressed = false;
 var plr1;
 var plr2;
 var projectiles = [];
+var asteroids = [];
 
 //classes
 
@@ -75,6 +78,8 @@ function Player(isControlled) {
 	
 	this.rightPointStartX = this.locX + xOffset;
 	this.rightPointStartY = this.locY + PLR_BOT_Y_OFFSET;
+	
+	//TODO: clean up points and use objects instead
 	
 	this.topPointX = this.topPointStartX;
 	this.topPointY = this.topPointStartY;
@@ -130,6 +135,7 @@ function Player(isControlled) {
 			*/
 			
 			//speed decay
+			//TODO: fix speed decay
 			//var velAngleRad = Math.atan(this.velY / this.velX);
 			if (this.velX != 0) {
 				if (this.velX > 0) {
@@ -286,14 +292,45 @@ function draw() {
 	plr2.draw();
 	
 	//draw asteroids
+	//ctx.fillStyle = "#FF0000";
+	ctx.strokeStyle = "#FF0000";
+	for (var i = 0; i < asteroids.length; ++i) {
+		//TODO: draw asteroid square based off of center point and rotation
+		var locX = asteroids[i].locX;
+		var locY = asteroids[i].locY;
+		var headingRad = degToRad(asteroids[i].headingDeg);
+		
+		var topLeftPoint = {x: locX - AST_RADIUS, y: locY - AST_RADIUS};
+		var topRightPoint = {x: locX + AST_RADIUS, y: locY - AST_RADIUS};
+		var bottomLeftPoint = {x: locX - AST_RADIUS, y: locY + AST_RADIUS};
+		var bottomRightPoint = {x: locX + AST_RADIUS, y: locY + AST_RADIUS};
+		
+		//rotate
+		var topLeftRot = rotationMatrix(topLeftPoint.x - locX, topLeftPoint.y - locY, headingRad);
+		var topRightRot = rotationMatrix(topRightPoint.x - locX, topRightPoint.y - locY, headingRad);
+		var bottomLeftRot = rotationMatrix(bottomLeftPoint.x - locX, bottomLeftPoint.y - locY, headingRad);
+		var bottomRightRot = rotationMatrix(bottomRightPoint.x - locX, bottomRightPoint.y - locY, headingRad);
+		
+		ctx.beginPath();
+		ctx.moveTo(topLeftRot[0] + locX, topLeftRot[1] + locY);
+		ctx.lineTo(bottomLeftRot[0] + locX, bottomLeftRot[1] + locY);
+		ctx.lineTo(bottomRightRot[0] + locX, bottomRightRot[1] + locY);
+		ctx.lineTo(topRightRot[0] + locX, topRightRot[1] + locY);
+		ctx.lineTo(topLeftRot[0] + locX, topLeftRot[1] + locY);
+		ctx.stroke();
+		
+		//ctx.fillRect(asteroids[i].locX, asteroids[i].locY, AST_RADIUS, AST_RADIUS);
+	}
 	
 	//draw projectiles
-	ctx.fillStyle = "#FFFF00";
+	//ctx.fillStyle = "#FFFF00";
+	ctx.strokeStyle = "#FFFF00";
 	for (var i = 0; i < projectiles.length; ++i) {
 		if (projectiles[i].visible) {
 			ctx.beginPath();
 			ctx.arc(projectiles[i].locX, projectiles[i].locY, PROJ_RADIUS, 0, 2 * Math.PI);
-			ctx.fill();
+			//ctx.fill();
+			ctx.stroke();
 		}
 	}
 	
@@ -339,10 +376,13 @@ function keyUp(evt) {
 	}
 }
 
+//converts from degrees to radians
 function degToRad(deg) {
 	return (deg * Math.PI / 180);
 }
 
+//applies a rotation linear transformation to a point about the origin
+//TODO: change [newX, newy] array to {x: newX, y: newY} object
 function rotationMatrix(x, y, thetaRad) {
 	var newX = x * Math.cos(thetaRad) - y * Math.sin(thetaRad);
 	var newY = x * Math.sin(thetaRad) + y * Math.cos(thetaRad);
@@ -372,6 +412,10 @@ socket.on("otherPoints_2", function(data) {
 
 socket.on("projectiles", function(data) {
 	projectiles = data;
+});
+
+socket.on("asteroids", function(data) {
+	asteroids = data;
 });
 
 

@@ -4,6 +4,8 @@
 	Server Code
 */
 
+//TODO: only send essential properties of objects to clients for asteroids and projectiles
+
 var express = require("express");
 var socket = require("socket.io");
 
@@ -28,10 +30,15 @@ const PROJ_RADIUS = 2;
 const PROJ_SPEED = 3;
 const PROJ_TIME = 2000;
 
+const NUM_AST = 4;
+const AST_MAX_SPEED = 0.5;
+const AST_MAX_ROT_SPEED = 1;
+
 //variables
 
 var roomNum = 1;
 var projectiles = [];
+var asteroids = [];
 
 //classes
 
@@ -77,6 +84,42 @@ function Projectile(locX, locY, headingDeg) {
 	}
 }
 
+function Asteroid() {
+	this.locX = calcRand(0, WIDTH);
+	this.locY = calcRand(0, HEIGHT);
+	
+	this.velX = AST_MAX_SPEED * (2 * Math.random() - 1);
+	this.velY = AST_MAX_SPEED * (2 * Math.random() - 1);
+	
+	this.headingDeg = calcRand(0, 359);
+	
+	this.rotSpeed = AST_MAX_ROT_SPEED * (2 * Math.random() - 1);
+	
+	this.updateMovement = function() {
+		this.locX += this.velX;
+		this.locY += this.velY;
+		
+		this.headingDeg += this.rotSpeed;
+		
+		//handle border collision
+		if (this.locX < 0) {
+			//left border
+			this.locX += WIDTH;
+		} else if (this.locX > WIDTH) {
+			//right border
+			this.locX -= WIDTH;
+		}
+		
+		if (this.locY < 0) {
+			//top border
+			this.locY += HEIGHT;
+		} else if (this.locY > HEIGHT) {
+			//bottom border
+			this.locY -= HEIGHT;
+		}
+	}
+}
+
 //update projectile movement
 function updateProjectiles(roomNum) {
 	for (var i = 0; i < projectiles.length; ++i) {
@@ -86,8 +129,16 @@ function updateProjectiles(roomNum) {
 	io.sockets.in("room_" + roomNum).emit("projectiles", projectiles);
 }
 
-//client connect
+//update asteroids movement
+function updateAsteroids(roomNum) {
+	for (var i = 0; i < asteroids.length; ++i) {
+		asteroids[i].updateMovement();
+	}
+	
+	io.sockets.in("room_" + roomNum).emit("asteroids", asteroids);
+}
 
+//client connect
 io.on("connection", function(socket) {
 	if (io.nsps["/"].adapter.rooms["room_" + roomNum] && io.nsps["/"].adapter.rooms["room_" + roomNum].length > 1) {
 		++roomNum;
@@ -107,9 +158,17 @@ io.on("connection", function(socket) {
 		io.sockets.in("room_" + roomNum).emit("otherPoints_" + playerNum, data);
 	});
 	
-	//update projectile movement and output data to clients in room
+	
 	if (playerNum == 1) {
+		//update projectile movement
 		setInterval(function() {updateProjectiles(roomNum)}, 10);
+		
+		//make asteroids and update movement
+		for (var i = 0; i < NUM_AST; ++i) {
+			asteroids.push(new Asteroid());
+		}
+		
+		setInterval(function() {updateAsteroids(roomNum)}, 10);
 	}
 	
 	//make new projectile
@@ -124,6 +183,12 @@ io.on("connection", function(socket) {
 	});
 });
 
+//converts from degrees to radians
 function degToRad(deg) {
 	return (deg * Math.PI / 180);
+}
+
+//calculate a random integer from min (inclusive) to max (exclusive)
+function calcRand(min, max) {
+	return Math.floor(Math.random() * (max - min)) + min;
 }
