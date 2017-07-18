@@ -25,8 +25,6 @@ const PLR_MAX_SPEED = 2;
 
 const PROJ_RADIUS = 2;
 const PROJ_START_DIST = 5;
-const PROJ_SPEED = 3;
-const PROJ_TIME = 2000;
 
 //global variables
 var socket = io.connect("http://localhost:3000");
@@ -242,62 +240,12 @@ function Player(isControlled) {
 	}
 	
 	this.shoot = function() {
-		if (spacebarPressed) {
+		if (spacebarPressed && this.isControlled) {
 			spacebarPressed = false;
 			var x = PROJ_START_DIST * Math.cos(degToRad(this.headingDeg)) + this.topPointX;
 			var y = PROJ_START_DIST * Math.sin(degToRad(this.headingDeg)) + this.topPointY;
-			proj = new Projectile(x, y, this.headingDeg);
-			projectiles.push(proj);
-		}
-	}
-}
-
-function Projectile(locX, locY, headingDeg) {
-	this.locX = locX;
-	this.locY = locY;
-	this.radius = PROJ_RADIUS;
-	
-	this.visible = true;
-	
-	var headingRad = degToRad(headingDeg);
-	
-	this.velX = PROJ_SPEED * Math.cos(headingRad - Math.PI / 2);
-	this.velY = PROJ_SPEED * Math.sin(headingRad - Math.PI / 2);
-	
-	var self = this;
-	setTimeout(function() {
-		self.visible = false;
-	}, PROJ_TIME);
-	
-	this.updateMovement = function() {
-		if (this.visible) {
-			this.locX += this.velX;
-			this.locY += this.velY;
 			
-			//handle border collision
-			if (this.locX < 0) {
-				//left border
-				this.locX += WIDTH;
-			} else if (this.locX > WIDTH) {
-				//right border
-				this.locX -= WIDTH;
-			}
-			
-			if (this.locY < 0) {
-				//top border
-				this.locY += HEIGHT;
-			} else if (this.locY > HEIGHT) {
-				//bottom border
-				this.locY -= HEIGHT;
-			}
-		}
-	}
-	
-	this.draw = function() {
-		if (this.visible) {
-			ctx.beginPath();
-			ctx.arc(this.locX, this.locY, this.radius, 0, 2 * Math.PI);
-			ctx.fill();
+			socket.emit("makeProj", {makeProj: true, locX: x, locY: y, headingDeg: this.headingDeg});
 		}
 	}
 }
@@ -321,10 +269,6 @@ function game() {
 			plr1.shoot();
 			plr2.shoot();
 			
-			for (var i = 0; i < projectiles.length; ++i) {
-				projectiles[i].updateMovement();
-			}
-			
 			//update draw
 			draw();
 		}
@@ -346,7 +290,11 @@ function draw() {
 	//draw projectiles
 	ctx.fillStyle = "#FFFF00";
 	for (var i = 0; i < projectiles.length; ++i) {
-		projectiles[i].draw();
+		if (projectiles[i].visible) {
+			ctx.beginPath();
+			ctx.arc(projectiles[i].locX, projectiles[i].locY, PROJ_RADIUS, 0, 2 * Math.PI);
+			ctx.fill();
+		}
 	}
 	
 	//draw alien
@@ -420,6 +368,10 @@ socket.on("otherPoints_2", function(data) {
 	if (playerNum == 1) {
 		otherPoints = data;
 	}
+});
+
+socket.on("projectiles", function(data) {
+	projectiles = data;
 });
 
 
