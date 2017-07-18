@@ -18,9 +18,9 @@ const PLR_BOT_DEG = 55;		//bottom angle of player triangle
 const PLR_TOP_Y_OFFSET = 10;
 const PLR_BOT_Y_OFFSET = 10;
 
-const PLR_ROT_SPEED = 1.5;
+const PLR_ROT_SPEED = 2.5;
 const PLR_SPEED = 0.1;
-const PLR_SPEED_DECAY = 0.01;
+const PLR_SPEED_DECAY = 0.02;
 const PLR_MAX_SPEED = 2;
 
 const PROJ_RADIUS = 2;
@@ -133,66 +133,23 @@ function Player(isControlled) {
 			*/
 			
 			//speed decay
-			//TODO: fix speed decay
-			//var velAngleRad = Math.atan(this.velY / this.velX);
-			
-			/*
 			var norm = Math.sqrt(Math.pow(this.velX, 2) + Math.pow(this.velY, 2));
-			var unitVector = {x: this.velX / norm, y: this.velY / norm};
-			
-			this.velX -= PLR_SPEED_DECAY * unitVector.x;
-			this.velY -= PLR_SPEED_DECAY * unitVector.y;
-			*/
-			
-			
-			if (this.velX != 0) {
-				if (this.velX > 0) {
-					//going right
-					this.velX -= PLR_SPEED_DECAY;
-					//this.velX -= PLR_SPEED_DECAY * Math.cos(velAngleRad);
-					if (this.velX < 0) {
-						this.velX = 0;
-					}
-				} else {
-					//going left
-					this.velX += PLR_SPEED_DECAY;
-					//this.velX += PLR_SPEED_DECAY * Math.cos(velAngleRad);
-					if (this.velX > 0) {
-						this.velX = 0;
-					}
+			if (norm != 0) {
+				var unitVector = {x: this.velX / norm, y: this.velY / norm};
+				
+				this.velX -= PLR_SPEED_DECAY * unitVector.x;
+				this.velY -= PLR_SPEED_DECAY * unitVector.y;
+				
+				//max speed
+				if (norm > PLR_MAX_SPEED) {
+					this.velX = unitVector.x * PLR_MAX_SPEED;
+					this.velY = unitVector.y * PLR_MAX_SPEED;
 				}
 			}
-			
-			if (this.velY != 0) {
-				if (this.velY > 0) {
-					//going down
-					this.velY -= PLR_SPEED_DECAY;
-					//this.velY += PLR_SPEED_DECAY * Math.sin(velAngleRad);
-					if (this.velY < 0) {
-						this.velY = 0;
-					}
-				} else {
-					//going up
-					this.velY += PLR_SPEED_DECAY;
-					//this.velY -= PLR_SPEED_DECAY * Math.sin(velAngleRad);
-					if (this.velY > 0) {
-						this.velY = 0;
-					}
-				}
-			}
-			
 			
 			//update velocity
 			this.velX += PLR_SPEED * forwardSpeed * Math.sin(headingRad);
 			this.velY -= PLR_SPEED * forwardSpeed * Math.cos(headingRad);
-			
-			if (Math.abs(this.velX) > PLR_MAX_SPEED) {
-				this.velX = PLR_MAX_SPEED * (this.velX / Math.abs(this.velX));
-			}
-			
-			if (Math.abs(this.velY) > PLR_MAX_SPEED) {
-				this.velY = PLR_MAX_SPEED * (this.velY / Math.abs(this.velY));
-			}
 			
 			//update position
 			this.translate(this.velX, this.velY);

@@ -95,7 +95,7 @@ function Projectile(locX, locY, headingDeg) {
 			//hit asteroid
 			for (var i = 0; i < asteroids.length; ++i) {
 				if (asteroids[i].visible) {
-					var collisionRadius = asteroids[i].radius * 0.8;
+					var collisionRadius = asteroids[i].radius * 0.9;
 					var boundLeft = asteroids[i].locX - collisionRadius;
 					var boundRight = asteroids[i].locX + collisionRadius;
 					var boundTop = asteroids[i].locY - collisionRadius;
