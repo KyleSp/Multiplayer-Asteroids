@@ -26,8 +26,6 @@ const PLR_MAX_SPEED = 2;
 const PROJ_RADIUS = 2;
 const PROJ_START_DIST = 5;
 
-const AST_RADIUS = 40;
-
 //global variables
 var socket = io.connect("http://localhost:3000");
 var playerNum = 0;
@@ -137,6 +135,16 @@ function Player(isControlled) {
 			//speed decay
 			//TODO: fix speed decay
 			//var velAngleRad = Math.atan(this.velY / this.velX);
+			
+			/*
+			var norm = Math.sqrt(Math.pow(this.velX, 2) + Math.pow(this.velY, 2));
+			var unitVector = {x: this.velX / norm, y: this.velY / norm};
+			
+			this.velX -= PLR_SPEED_DECAY * unitVector.x;
+			this.velY -= PLR_SPEED_DECAY * unitVector.y;
+			*/
+			
+			
 			if (this.velX != 0) {
 				if (this.velX > 0) {
 					//going right
@@ -172,6 +180,7 @@ function Player(isControlled) {
 					}
 				}
 			}
+			
 			
 			//update velocity
 			this.velX += PLR_SPEED * forwardSpeed * Math.sin(headingRad);
@@ -246,6 +255,7 @@ function Player(isControlled) {
 	}
 	
 	this.shoot = function() {
+		//TODO: add cooldown between shots
 		if (spacebarPressed && this.isControlled) {
 			spacebarPressed = false;
 			var x = PROJ_START_DIST * Math.cos(degToRad(this.headingDeg)) + this.topPointX;
@@ -287,49 +297,47 @@ function draw() {
 	ctx.fillRect(0, 0, WIDTH, HEIGHT);
 	
 	//draw players
-	ctx.strokeStyle = "#FFFFFF";
+	ctx.strokeStyle = "#0000FF";
 	plr1.draw();
+	ctx.strokeStyle = "#00FF00";
 	plr2.draw();
 	
 	//draw asteroids
-	//ctx.fillStyle = "#FF0000";
 	ctx.strokeStyle = "#FF0000";
 	for (var i = 0; i < asteroids.length; ++i) {
-		//TODO: draw asteroid square based off of center point and rotation
-		var locX = asteroids[i].locX;
-		var locY = asteroids[i].locY;
-		var headingRad = degToRad(asteroids[i].headingDeg);
-		
-		var topLeftPoint = {x: locX - AST_RADIUS, y: locY - AST_RADIUS};
-		var topRightPoint = {x: locX + AST_RADIUS, y: locY - AST_RADIUS};
-		var bottomLeftPoint = {x: locX - AST_RADIUS, y: locY + AST_RADIUS};
-		var bottomRightPoint = {x: locX + AST_RADIUS, y: locY + AST_RADIUS};
-		
-		//rotate
-		var topLeftRot = rotationMatrix(topLeftPoint.x - locX, topLeftPoint.y - locY, headingRad);
-		var topRightRot = rotationMatrix(topRightPoint.x - locX, topRightPoint.y - locY, headingRad);
-		var bottomLeftRot = rotationMatrix(bottomLeftPoint.x - locX, bottomLeftPoint.y - locY, headingRad);
-		var bottomRightRot = rotationMatrix(bottomRightPoint.x - locX, bottomRightPoint.y - locY, headingRad);
-		
-		ctx.beginPath();
-		ctx.moveTo(topLeftRot[0] + locX, topLeftRot[1] + locY);
-		ctx.lineTo(bottomLeftRot[0] + locX, bottomLeftRot[1] + locY);
-		ctx.lineTo(bottomRightRot[0] + locX, bottomRightRot[1] + locY);
-		ctx.lineTo(topRightRot[0] + locX, topRightRot[1] + locY);
-		ctx.lineTo(topLeftRot[0] + locX, topLeftRot[1] + locY);
-		ctx.stroke();
-		
-		//ctx.fillRect(asteroids[i].locX, asteroids[i].locY, AST_RADIUS, AST_RADIUS);
+		if (asteroids[i].visible) {
+			var locX = asteroids[i].locX;
+			var locY = asteroids[i].locY;
+			var headingRad = degToRad(asteroids[i].headingDeg);
+			var radius = asteroids[i].radius;
+			
+			var topLeftPoint = {x: locX - radius, y: locY - radius};
+			var topRightPoint = {x: locX + radius, y: locY - radius};
+			var bottomLeftPoint = {x: locX - radius, y: locY + radius};
+			var bottomRightPoint = {x: locX + radius, y: locY + radius};
+			
+			//rotate
+			var topLeftRot = rotationMatrix(topLeftPoint.x - locX, topLeftPoint.y - locY, headingRad);
+			var topRightRot = rotationMatrix(topRightPoint.x - locX, topRightPoint.y - locY, headingRad);
+			var bottomLeftRot = rotationMatrix(bottomLeftPoint.x - locX, bottomLeftPoint.y - locY, headingRad);
+			var bottomRightRot = rotationMatrix(bottomRightPoint.x - locX, bottomRightPoint.y - locY, headingRad);
+			
+			ctx.beginPath();
+			ctx.moveTo(topLeftRot[0] + locX, topLeftRot[1] + locY);
+			ctx.lineTo(bottomLeftRot[0] + locX, bottomLeftRot[1] + locY);
+			ctx.lineTo(bottomRightRot[0] + locX, bottomRightRot[1] + locY);
+			ctx.lineTo(topRightRot[0] + locX, topRightRot[1] + locY);
+			ctx.lineTo(topLeftRot[0] + locX, topLeftRot[1] + locY);
+			ctx.stroke();
+		}
 	}
 	
 	//draw projectiles
-	//ctx.fillStyle = "#FFFF00";
 	ctx.strokeStyle = "#FFFF00";
 	for (var i = 0; i < projectiles.length; ++i) {
 		if (projectiles[i].visible) {
 			ctx.beginPath();
 			ctx.arc(projectiles[i].locX, projectiles[i].locY, PROJ_RADIUS, 0, 2 * Math.PI);
-			//ctx.fill();
 			ctx.stroke();
 		}
 	}

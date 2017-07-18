@@ -4,7 +4,9 @@
 	Server Code
 */
 
-//TODO: only send essential properties of objects to clients for asteroids and projectiles
+//TODO: only send essential properties of objects to clients for asteroids and projectiles (optimization)
+//TODO: make it work for multiple rooms (use 2d arrays)
+//TODO: delete asteroids and projectiles that are no longer visible
 
 var express = require("express");
 var socket = require("socket.io");
@@ -31,7 +33,12 @@ const PROJ_SPEED = 3;
 const PROJ_TIME = 2000;
 
 const NUM_AST = 4;
-const AST_MAX_SPEED = 0.5;
+const AST_RADIUS_LARGE = 40;
+const AST_RADIUS_MEDIUM = 20;
+const AST_RADIUS_SMALL = 10;
+const AST_MAX_SPEED_LARGE = 0.5;
+const AST_MAX_SPEED_MEDIUM = 1.0;
+const AST_MAX_SPEED_SMALL = 1.5;
 const AST_MAX_ROT_SPEED = 1;
 
 //variables
@@ -45,14 +52,14 @@ var asteroids = [];
 function Projectile(locX, locY, headingDeg) {
 	this.locX = locX;
 	this.locY = locY;
+	
 	this.radius = PROJ_RADIUS;
 	
-	this.visible = true;
-	
 	var headingRad = degToRad(headingDeg);
-	
 	this.velX = PROJ_SPEED * Math.cos(headingRad - Math.PI / 2);
 	this.velY = PROJ_SPEED * Math.sin(headingRad - Math.PI / 2);
+	
+	this.visible = true;
 	
 	var self = this;
 	setTimeout(function() {
@@ -82,40 +89,82 @@ function Projectile(locX, locY, headingDeg) {
 			}
 		}
 	}
+	
+	this.checkCollisions = function() {
+		if (this.visible) {
+			//hit asteroid
+			for (var i = 0; i < asteroids.length; ++i) {
+				if (asteroids[i].visible) {
+					var collisionRadius = asteroids[i].radius * 0.8;
+					var boundLeft = asteroids[i].locX - collisionRadius;
+					var boundRight = asteroids[i].locX + collisionRadius;
+					var boundTop = asteroids[i].locY - collisionRadius;
+					var boundBottom = asteroids[i].locY + collisionRadius;
+					
+					if (this.locX > boundLeft && this.locX < boundRight && this.locY > boundTop && this.locY < boundBottom) {
+						//collision
+						asteroids[i].visible = false;
+						this.visible = false;
+						
+						//make smaller asteroids
+						if (asteroids[i].radius == AST_RADIUS_LARGE) {
+							asteroids.push(new Asteroid(asteroids[i].locX, asteroids[i].locY, AST_RADIUS_MEDIUM, AST_MAX_SPEED_MEDIUM));
+							asteroids.push(new Asteroid(asteroids[i].locX, asteroids[i].locY, AST_RADIUS_MEDIUM, AST_MAX_SPEED_MEDIUM));
+						} else if (asteroids[i].radius == AST_RADIUS_MEDIUM) {
+							asteroids.push(new Asteroid(asteroids[i].locX, asteroids[i].locY, AST_RADIUS_SMALL, AST_MAX_SPEED_SMALL));
+							asteroids.push(new Asteroid(asteroids[i].locX, asteroids[i].locY, AST_RADIUS_SMALL, AST_MAX_SPEED_SMALL));
+						}
+						
+						break;
+					}
+				}
+			}
+		}
+		
+		if (this.visible) {
+			//hit player
+		}
+	}
 }
 
-function Asteroid() {
-	this.locX = calcRand(0, WIDTH);
-	this.locY = calcRand(0, HEIGHT);
+function Asteroid(locX, locY, radius, maxSpeed) {
+	this.locX = locX;
+	this.locY = locY;
 	
-	this.velX = AST_MAX_SPEED * (2 * Math.random() - 1);
-	this.velY = AST_MAX_SPEED * (2 * Math.random() - 1);
+	this.velX = maxSpeed * (2 * Math.random() - 1);
+	this.velY = maxSpeed * (2 * Math.random() - 1);
 	
 	this.headingDeg = calcRand(0, 359);
 	
+	this.radius = radius;
+	
 	this.rotSpeed = AST_MAX_ROT_SPEED * (2 * Math.random() - 1);
 	
+	this.visible = true;
+	
 	this.updateMovement = function() {
-		this.locX += this.velX;
-		this.locY += this.velY;
-		
-		this.headingDeg += this.rotSpeed;
-		
-		//handle border collision
-		if (this.locX < 0) {
-			//left border
-			this.locX += WIDTH;
-		} else if (this.locX > WIDTH) {
-			//right border
-			this.locX -= WIDTH;
-		}
-		
-		if (this.locY < 0) {
-			//top border
-			this.locY += HEIGHT;
-		} else if (this.locY > HEIGHT) {
-			//bottom border
-			this.locY -= HEIGHT;
+		if (this.visible) {
+			this.locX += this.velX;
+			this.locY += this.velY;
+			
+			this.headingDeg += this.rotSpeed;
+			
+			//handle border collision
+			if (this.locX < 0) {
+				//left border
+				this.locX += WIDTH;
+			} else if (this.locX > WIDTH) {
+				//right border
+				this.locX -= WIDTH;
+			}
+			
+			if (this.locY < 0) {
+				//top border
+				this.locY += HEIGHT;
+			} else if (this.locY > HEIGHT) {
+				//bottom border
+				this.locY -= HEIGHT;
+			}
 		}
 	}
 }
@@ -124,6 +173,7 @@ function Asteroid() {
 function updateProjectiles(roomNum) {
 	for (var i = 0; i < projectiles.length; ++i) {
 		projectiles[i].updateMovement();
+		projectiles[i].checkCollisions();
 	}
 		
 	io.sockets.in("room_" + roomNum).emit("projectiles", projectiles);
@@ -165,7 +215,7 @@ io.on("connection", function(socket) {
 		
 		//make asteroids and update movement
 		for (var i = 0; i < NUM_AST; ++i) {
-			asteroids.push(new Asteroid());
+			asteroids.push(new Asteroid(calcRand(0, WIDTH), calcRand(0, HEIGHT), AST_RADIUS_LARGE, AST_MAX_SPEED_LARGE));
 		}
 		
 		setInterval(function() {updateAsteroids(roomNum)}, 10);
