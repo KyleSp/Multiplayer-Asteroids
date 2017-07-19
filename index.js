@@ -30,12 +30,12 @@ const HEIGHT = 600;
 
 const PLR_TOP_Y_OFFSET = 10;
 
-const PROJ_RADIUS = 2;
+const PROJ_RADIUS = 3;
 const PROJ_SPEED = 3;
 const PROJ_TIME = 2000;
 
 const NUM_AST = 4;
-const AST_COLLISION_PERCENT = 0.9;
+const AST_COLLISION_PERCENT = 1;
 const AST_RADIUS_LARGE = 40;
 const AST_RADIUS_MEDIUM = 20;
 const AST_RADIUS_SMALL = 10;
@@ -128,8 +128,45 @@ function Projectile(locX, locY, headingDeg) {
 		}
 		
 		if (this.visible) {
+			//TODO: combine damage done to players for asteroids and projectiles
 			//projectile hits player
+			var boundLeft = this.locX - PROJ_RADIUS;
+			var boundRight = this.locX + PROJ_RADIUS;
+			var boundTop = this.locY - PROJ_RADIUS;
+			var boundBottom = this.locY + PROJ_RADIUS;
+			if (plr1Points) {
+				//var plr1Loc = {x: plr1Points.topPointX, y: plr1Points.topPointY - PLR_TOP_Y_OFFSET};
+				
+				var plr1Loc = {
+					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
+					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
+				};
+				
+				if (plr1Loc.x >= boundLeft && plr1Loc.x <= boundRight && plr1Loc.y >= boundTop && plr1Loc.y <= boundBottom) {
+					//collision
+					console.log("plr1 hit by a projectile!");
+					this.visible = false;
+					io.sockets.in("room_" + roomNum).emit("playerHurt_1", true);
+					io.sockets.in("room_" + roomNum).emit("playerHurt_1", false);
+				}
+			}
 			
+			if (plr2Points) {
+				//var plr2Loc = {x: plr2Points.topPointX, y: plr2Points.topPointY - PLR_TOP_Y_OFFSET};
+				
+				var plr2Loc = {
+					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
+					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
+				};
+				
+				if (plr2Loc.x >= boundLeft && plr2Loc.x <= boundRight && plr2Loc.y >= boundTop && plr2Loc.y <= boundBottom) {
+					//collision
+					console.log("plr2 hit by a projectile!");
+					this.visible = false;
+					io.sockets.in("room_" + roomNum).emit("playerHurt_2", true);
+					io.sockets.in("room_" + roomNum).emit("playerHurt_2", false);
+				}
+			}
 		}
 	}
 }
@@ -187,7 +224,13 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 			//TODO: handle using array
 			var collision = false;
 			if (plr1Points) {
-				var plr1Loc = {x: plr1Points.topPointX, y: plr1Points.topPointY - PLR_TOP_Y_OFFSET};
+				//var plr1Loc = {x: plr1Points.topPointX, y: plr1Points.topPointY - PLR_TOP_Y_OFFSET};
+				
+				var plr1Loc = {
+					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
+					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
+				};
+				
 				if (plr1Loc.x > boundLeft && plr1Loc.x < boundRight && plr1Loc.y > boundTop && plr1Loc.y < boundBottom) {
 					//collision
 					console.log("plr1 collision!");
@@ -198,7 +241,13 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 			}
 			
 			if (plr2Points) {
-				var plr2Loc = {x: plr2Points.topPointX, y: plr2Points.topPointY - PLR_TOP_Y_OFFSET};
+				//var plr2Loc = {x: plr2Points.topPointX, y: plr2Points.topPointY - PLR_TOP_Y_OFFSET};
+				
+				var plr2Loc = {
+					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
+					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
+				};
+				
 				if (plr2Loc.x > boundLeft && plr2Loc.x < boundRight && plr2Loc.y > boundTop && plr2Loc.y < boundBottom) {
 					//collision
 					console.log("plr2 collision!");

@@ -25,7 +25,7 @@ const PLR_MAX_SPEED = 2;
 
 const PLR_MAX_HEALTH = 3;
 
-const PROJ_RADIUS = 2;
+const PROJ_RADIUS = 3;
 const PROJ_START_DIST = 5;
 
 //global variables
