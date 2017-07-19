@@ -23,6 +23,8 @@ const PLR_SPEED = 0.1;
 const PLR_SPEED_DECAY = 0.02;
 const PLR_MAX_SPEED = 2;
 
+const PLR_MAX_HEALTH = 3;
+
 const PROJ_RADIUS = 2;
 const PROJ_START_DIST = 5;
 
@@ -52,6 +54,7 @@ var plr1;
 var plr2;
 var projectiles = [];
 var asteroids = [];
+var gameOver = 0;
 
 //classes
 
@@ -89,6 +92,8 @@ function Player(isControlled) {
 	//velocity
 	this.velX = 0;
 	this.velY = 0;
+	
+	this.health = PLR_MAX_HEALTH;
 	
 	this.updateMovement = function() {
 		if (this.isControlled) {
@@ -301,6 +306,20 @@ function draw() {
 	
 	//draw alien
 	
+	
+	//draw health text
+	ctx.font = "30px Arial";
+	ctx.fillStyle = "blue";
+	ctx.fillText("P1: " + plr1.health, 30, 50);
+	ctx.fillStyle = "green";
+	ctx.fillText("P2: " + plr2.health, WIDTH - 100, 50);
+	ctx.fillStyle = "red";
+	if (gameOver == 1) {
+		ctx.fillText("Player 1 Lost!", WIDTH / 2 - 100, HEIGHT / 2);
+	}
+	if (gameOver == 2) {
+		ctx.fillText("Player 2 Lost!", WIDTH / 2 - 100, HEIGHT / 2);
+	}
 }
 
 function keyDown(evt) {
@@ -381,6 +400,38 @@ socket.on("projectiles", function(data) {
 
 socket.on("asteroids", function(data) {
 	asteroids = data;
+});
+
+socket.on("playerHurt_1", function(data) {
+	if (data == true) {
+		if (plr1) {
+			plr1.health -= 1;
+			
+			if (plr1.health <= 0) {
+				plr1.health = 0;
+				if (gameOver == 0) {
+					gameOver = 1;
+					console.log("player 1 lost!");
+				}
+			}
+		}
+	}
+});
+
+socket.on("playerHurt_2", function(data) {
+	if (data == true) {
+		if (plr2) {
+			plr2.health -= 1;
+			
+			if (plr2.health <= 0) {
+				plr2.health = 0;
+				if (gameOver == 0) {
+					gameOver = 2;
+					console.log("player 2 lost!");
+				}
+			}
+		}
+	}
 });
 
 
