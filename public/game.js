@@ -226,6 +226,31 @@ function Player(isControlled) {
 			socket.emit("makeProj", {makeProj: true, locX: x, locY: y, headingDeg: this.headingDeg});
 		}
 	}
+	
+	this.damaged = function() {
+		this.health -= 1;
+		
+		//reset player's position and velocity
+		this.translate(-this.locX, -this.locY);
+		this.translate(WIDTH / 2, HEIGHT / 2);
+		this.velX = 0;
+		this.velY = 0;
+		this.headingDeg = 0;
+		this.thetaDeg = 0;
+		
+		if (this.health <= 0) {
+			this.health = 0;
+			if (gameOver == 0) {
+				if (this.isControlled) {
+					gameOver = playerNum;
+					console.log("player " + playerNum + " lost!");
+				} else {
+					gameOver = otherPlayerNum;
+					console.log("player " + otherPlayerNum + " lost!");
+				}
+			}
+		}
+	}
 }
 
 //functions
@@ -379,6 +404,12 @@ function rotationMatrix(x, y, thetaRad) {
 //get player's number
 socket.on("playerNum", function(num) {
 	playerNum = num;
+	
+	if (num == 1) {
+		otherPlayerNum = 2;
+	} else {
+		otherPlayerNum = 1;
+	}
 });
 
 //get other player's points from server
@@ -402,10 +433,26 @@ socket.on("asteroids", function(data) {
 	asteroids = data;
 });
 
+socket.on("playerHurt", function(data) {
+	if (data.hurt) {
+		if (data.plrNum == 1 && plr1) {
+			plr1.damaged();
+		} else if (data.plrNum == 2 && plr2) {
+			plr2.damaged();
+		}
+	}
+});
+
+
+/*
 socket.on("playerHurt_1", function(data) {
 	if (data == true) {
 		if (plr1) {
 			plr1.health -= 1;
+			
+			//reset player's position
+			plr1.translate(-plr1.locX, -plr1.locY);
+			plr1.translate(WIDTH / 2, HEIGHT / 2);
 			
 			if (plr1.health <= 0) {
 				plr1.health = 0;
@@ -423,6 +470,10 @@ socket.on("playerHurt_2", function(data) {
 		if (plr2) {
 			plr2.health -= 1;
 			
+			//reset player's position
+			plr2.translate(-plr2.locX, -plr2.locY);
+			plr2.translate(WIDTH / 2, HEIGHT / 2);
+			
 			if (plr2.health <= 0) {
 				plr2.health = 0;
 				if (gameOver == 0) {
@@ -433,6 +484,7 @@ socket.on("playerHurt_2", function(data) {
 		}
 	}
 });
+*/
 
 
 start();

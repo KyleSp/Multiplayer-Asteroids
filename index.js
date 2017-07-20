@@ -235,8 +235,12 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 					//collision
 					console.log("plr1 collision!");
 					collision = true;
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
+					/*
 					io.sockets.in("room_" + roomNum).emit("playerHurt_1", true);
 					io.sockets.in("room_" + roomNum).emit("playerHurt_1", false);
+					*/
 				}
 			}
 			
@@ -252,8 +256,12 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 					//collision
 					console.log("plr2 collision!");
 					collision = true;
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
+					/*
 					io.sockets.in("room_" + roomNum).emit("playerHurt_2", true);
 					io.sockets.in("room_" + roomNum).emit("playerHurt_2", false);
+					*/
 				}
 			}
 			
