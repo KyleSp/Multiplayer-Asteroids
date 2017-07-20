@@ -24,6 +24,7 @@ const PLR_SPEED_DECAY = 0.02;
 const PLR_MAX_SPEED = 2;
 
 const PLR_MAX_HEALTH = 3;
+const PLR_SHOOT_DEBOUNCE = 500;
 
 const PROJ_RADIUS = 3;
 const PROJ_START_DIST = 5;
@@ -49,6 +50,7 @@ var upPressed = false;
 var rightPressed = false;
 var spacebarPressed = false;
 //var downPressed = false;
+var canShoot = true;
 
 var plr1;
 var plr2;
@@ -217,7 +219,20 @@ function Player(isControlled) {
 	}
 	
 	this.shoot = function() {
-		//TODO: add cooldown between shots
+		if (canShoot && spacebarPressed && this.isControlled) {
+			canShoot = false;
+			
+			setTimeout(function() {
+				canShoot = true;
+			}, PLR_SHOOT_DEBOUNCE);
+			
+			var x = PROJ_START_DIST * Math.cos(degToRad(this.headingDeg)) + this.topPointX;
+			var y = PROJ_START_DIST * Math.sin(degToRad(this.headingDeg)) + this.topPointY;
+			
+			socket.emit("makeProj", {makeProj: true, locX: x, locY: y, headingDeg: this.headingDeg});
+		}
+		
+		/*
 		if (spacebarPressed && this.isControlled) {
 			spacebarPressed = false;
 			var x = PROJ_START_DIST * Math.cos(degToRad(this.headingDeg)) + this.topPointX;
@@ -225,6 +240,7 @@ function Player(isControlled) {
 			
 			socket.emit("makeProj", {makeProj: true, locX: x, locY: y, headingDeg: this.headingDeg});
 		}
+		*/
 	}
 	
 	this.damaged = function() {
@@ -236,7 +252,12 @@ function Player(isControlled) {
 		this.velX = 0;
 		this.velY = 0;
 		this.headingDeg = 0;
-		this.thetaDeg = 0;
+		this.topPointX = this.topPointStartX;
+		this.topPointY = this.topPointStartY;
+		this.leftPointX = this.leftPointStartX;
+		this.leftPointY = this.leftPointStartY;
+		this.rightPointX = this.rightPointStartX;
+		this.rightPointY = this.rightPointStartY;
 		
 		if (this.health <= 0) {
 			this.health = 0;
@@ -442,49 +463,5 @@ socket.on("playerHurt", function(data) {
 		}
 	}
 });
-
-
-/*
-socket.on("playerHurt_1", function(data) {
-	if (data == true) {
-		if (plr1) {
-			plr1.health -= 1;
-			
-			//reset player's position
-			plr1.translate(-plr1.locX, -plr1.locY);
-			plr1.translate(WIDTH / 2, HEIGHT / 2);
-			
-			if (plr1.health <= 0) {
-				plr1.health = 0;
-				if (gameOver == 0) {
-					gameOver = 1;
-					console.log("player 1 lost!");
-				}
-			}
-		}
-	}
-});
-
-socket.on("playerHurt_2", function(data) {
-	if (data == true) {
-		if (plr2) {
-			plr2.health -= 1;
-			
-			//reset player's position
-			plr2.translate(-plr2.locX, -plr2.locY);
-			plr2.translate(WIDTH / 2, HEIGHT / 2);
-			
-			if (plr2.health <= 0) {
-				plr2.health = 0;
-				if (gameOver == 0) {
-					gameOver = 2;
-					console.log("player 2 lost!");
-				}
-			}
-		}
-	}
-});
-*/
-
 
 start();

@@ -32,7 +32,7 @@ const PLR_TOP_Y_OFFSET = 10;
 
 const PROJ_RADIUS = 3;
 const PROJ_SPEED = 3;
-const PROJ_TIME = 2000;
+const PROJ_TIME = 1300;
 
 const NUM_AST = 4;
 const AST_COLLISION_PERCENT = 1;
@@ -109,17 +109,9 @@ function Projectile(locX, locY, headingDeg) {
 					
 					if (this.locX > boundLeft && this.locX < boundRight && this.locY > boundTop && this.locY < boundBottom) {
 						//collision
-						asteroids[i].visible = false;
 						this.visible = false;
 						
-						//make smaller asteroids
-						if (asteroids[i].radius == AST_RADIUS_LARGE) {
-							asteroids.push(new Asteroid(asteroids[i].locX, asteroids[i].locY, AST_RADIUS_MEDIUM, AST_MAX_SPEED_MEDIUM));
-							asteroids.push(new Asteroid(asteroids[i].locX, asteroids[i].locY, AST_RADIUS_MEDIUM, AST_MAX_SPEED_MEDIUM));
-						} else if (asteroids[i].radius == AST_RADIUS_MEDIUM) {
-							asteroids.push(new Asteroid(asteroids[i].locX, asteroids[i].locY, AST_RADIUS_SMALL, AST_MAX_SPEED_SMALL));
-							asteroids.push(new Asteroid(asteroids[i].locX, asteroids[i].locY, AST_RADIUS_SMALL, AST_MAX_SPEED_SMALL));
-						}
+						asteroids[i].makeSmallerAsteroids(2);
 						
 						break;
 					}
@@ -130,10 +122,10 @@ function Projectile(locX, locY, headingDeg) {
 		if (this.visible) {
 			//TODO: combine damage done to players for asteroids and projectiles
 			//projectile hits player
-			var boundLeft = this.locX - PROJ_RADIUS;
-			var boundRight = this.locX + PROJ_RADIUS;
-			var boundTop = this.locY - PROJ_RADIUS;
-			var boundBottom = this.locY + PROJ_RADIUS;
+			var boundLeft = this.locX - PROJ_RADIUS * 2;
+			var boundRight = this.locX + PROJ_RADIUS * 2;
+			var boundTop = this.locY - PROJ_RADIUS * 2;
+			var boundBottom = this.locY + PROJ_RADIUS * 2;
 			if (plr1Points) {
 				//var plr1Loc = {x: plr1Points.topPointX, y: plr1Points.topPointY - PLR_TOP_Y_OFFSET};
 				
@@ -146,8 +138,8 @@ function Projectile(locX, locY, headingDeg) {
 					//collision
 					console.log("plr1 hit by a projectile!");
 					this.visible = false;
-					io.sockets.in("room_" + roomNum).emit("playerHurt_1", true);
-					io.sockets.in("room_" + roomNum).emit("playerHurt_1", false);
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
 				}
 			}
 			
@@ -163,8 +155,8 @@ function Projectile(locX, locY, headingDeg) {
 					//collision
 					console.log("plr2 hit by a projectile!");
 					this.visible = false;
-					io.sockets.in("room_" + roomNum).emit("playerHurt_2", true);
-					io.sockets.in("room_" + roomNum).emit("playerHurt_2", false);
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
 				}
 			}
 		}
@@ -224,8 +216,6 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 			//TODO: handle using array
 			var collision = false;
 			if (plr1Points) {
-				//var plr1Loc = {x: plr1Points.topPointX, y: plr1Points.topPointY - PLR_TOP_Y_OFFSET};
-				
 				var plr1Loc = {
 					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
 					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
@@ -237,16 +227,10 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 					collision = true;
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
-					/*
-					io.sockets.in("room_" + roomNum).emit("playerHurt_1", true);
-					io.sockets.in("room_" + roomNum).emit("playerHurt_1", false);
-					*/
 				}
 			}
 			
 			if (plr2Points) {
-				//var plr2Loc = {x: plr2Points.topPointX, y: plr2Points.topPointY - PLR_TOP_Y_OFFSET};
-				
 				var plr2Loc = {
 					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
 					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
@@ -258,33 +242,45 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 					collision = true;
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
-					/*
-					io.sockets.in("room_" + roomNum).emit("playerHurt_2", true);
-					io.sockets.in("room_" + roomNum).emit("playerHurt_2", false);
-					*/
 				}
 			}
 			
 			//make smaller asteroids
 			if (collision) {
-				this.visible = false;
-				if (this.radius == AST_RADIUS_LARGE) {
-					asteroids.push(new Asteroid(this.locX, this.locY, AST_RADIUS_MEDIUM, AST_MAX_SPEED_MEDIUM));
-					asteroids.push(new Asteroid(this.locX, this.locY, AST_RADIUS_MEDIUM, AST_MAX_SPEED_MEDIUM));
-				} else if (this.radius == AST_RADIUS_MEDIUM) {
-					asteroids.push(new Asteroid(this.locX, this.locY, AST_RADIUS_SMALL, AST_MAX_SPEED_SMALL));
-					asteroids.push(new Asteroid(this.locX, this.locY, AST_RADIUS_SMALL, AST_MAX_SPEED_SMALL));
-				}
+				this.makeSmallerAsteroids(2);
 			}
+		}
+	}
+	
+	this.makeSmallerAsteroids = function(numNewAst) {
+		this.visible = false;
+		
+		var newRadius;
+		var newMaxSpeed;
+		
+		if (this.radius == AST_RADIUS_LARGE) {
+			newRadius = AST_RADIUS_MEDIUM;
+			newMaxSpeed = AST_MAX_SPEED_MEDIUM;
+		} else if (this.radius == AST_RADIUS_MEDIUM) {
+			newRadius = AST_RADIUS_SMALL;
+			newMaxSpeed = AST_MAX_SPEED_SMALL;
+		} else {
+			return;
+		}
+		
+		for (var i = 0; i < numNewAst; ++i) {
+			asteroids.push(new Asteroid(this.locX, this.locY, newRadius, newMaxSpeed));
 		}
 	}
 }
 
 //update projectile movement
 function updateProjectiles(roomNum) {
-	for (var i = 0; i < projectiles.length; ++i) {
-		projectiles[i].updateMovement();
-		projectiles[i].checkCollisions();
+	if (plr1Points && plr2Points) {
+		for (var i = 0; i < projectiles.length; ++i) {
+			projectiles[i].updateMovement();
+			projectiles[i].checkCollisions();
+		}
 	}
 		
 	io.sockets.in("room_" + roomNum).emit("projectiles", projectiles);
@@ -292,9 +288,11 @@ function updateProjectiles(roomNum) {
 
 //update asteroids movement
 function updateAsteroids(roomNum) {
-	for (var i = 0; i < asteroids.length; ++i) {
-		asteroids[i].updateMovement();
-		asteroids[i].checkCollisions(roomNum);
+	if (plr1Points && plr2Points) {
+		for (var i = 0; i < asteroids.length; ++i) {
+			asteroids[i].updateMovement();
+			asteroids[i].checkCollisions(roomNum);
+		}
 	}
 	
 	io.sockets.in("room_" + roomNum).emit("asteroids", asteroids);
