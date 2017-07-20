@@ -24,16 +24,22 @@ const PLR_SPEED_DECAY = 0.02;
 const PLR_MAX_SPEED = 2;
 
 const PLR_MAX_HEALTH = 3;
+
 const PLR_SHOOT_DEBOUNCE = 500;
+const PLR_RESPAWN_COOLDOWN = 1000;
 
 const PROJ_RADIUS = 3;
 const PROJ_START_DIST = 5;
+
+const ALIEN_RADIUS = 20;
 
 //global variables
 var socket = io.connect("http://localhost:3000");
 var playerNum = 0;
 var otherPlayerNum = 0;
 var gameStarted = false;
+var allPlayersJoined = false;
+var gameOver = 0;
 
 //from other player
 var otherPoints = {
@@ -56,7 +62,7 @@ var plr1;
 var plr2;
 var projectiles = [];
 var asteroids = [];
-var gameOver = 0;
+var alien;
 
 //classes
 
@@ -97,8 +103,10 @@ function Player(isControlled) {
 	
 	this.health = PLR_MAX_HEALTH;
 	
+	this.visible = true;
+	
 	this.updateMovement = function() {
-		if (this.isControlled) {
+		if (this.isControlled && this.visible) {
 			//rotation
 			
 			if (leftPressed) {
@@ -210,16 +218,18 @@ function Player(isControlled) {
 	}
 	
 	this.draw = function() {
-		ctx.beginPath();
-		ctx.moveTo(this.topPointX, this.topPointY);
-		ctx.lineTo(this.leftPointX, this.leftPointY);
-		ctx.lineTo(this.rightPointX, this.rightPointY);
-		ctx.lineTo(this.topPointX, this.topPointY);
-		ctx.stroke();
+		if (this.visible) {
+			ctx.beginPath();
+			ctx.moveTo(this.topPointX, this.topPointY);
+			ctx.lineTo(this.leftPointX, this.leftPointY);
+			ctx.lineTo(this.rightPointX, this.rightPointY);
+			ctx.lineTo(this.topPointX, this.topPointY);
+			ctx.stroke();
+		}
 	}
 	
 	this.shoot = function() {
-		if (canShoot && spacebarPressed && this.isControlled) {
+		if (this.visible && canShoot && spacebarPressed && this.isControlled) {
 			canShoot = false;
 			
 			setTimeout(function() {
@@ -231,43 +241,42 @@ function Player(isControlled) {
 			
 			socket.emit("makeProj", {makeProj: true, locX: x, locY: y, headingDeg: this.headingDeg});
 		}
-		
-		/*
-		if (spacebarPressed && this.isControlled) {
-			spacebarPressed = false;
-			var x = PROJ_START_DIST * Math.cos(degToRad(this.headingDeg)) + this.topPointX;
-			var y = PROJ_START_DIST * Math.sin(degToRad(this.headingDeg)) + this.topPointY;
-			
-			socket.emit("makeProj", {makeProj: true, locX: x, locY: y, headingDeg: this.headingDeg});
-		}
-		*/
 	}
 	
 	this.damaged = function() {
-		this.health -= 1;
-		
-		//reset player's position and velocity
-		this.translate(-this.locX, -this.locY);
-		this.translate(WIDTH / 2, HEIGHT / 2);
-		this.velX = 0;
-		this.velY = 0;
-		this.headingDeg = 0;
-		this.topPointX = this.topPointStartX;
-		this.topPointY = this.topPointStartY;
-		this.leftPointX = this.leftPointStartX;
-		this.leftPointY = this.leftPointStartY;
-		this.rightPointX = this.rightPointStartX;
-		this.rightPointY = this.rightPointStartY;
-		
-		if (this.health <= 0) {
-			this.health = 0;
-			if (gameOver == 0) {
-				if (this.isControlled) {
-					gameOver = playerNum;
-					console.log("player " + playerNum + " lost!");
-				} else {
-					gameOver = otherPlayerNum;
-					console.log("player " + otherPlayerNum + " lost!");
+		if (this.visible) {
+			this.health -= 1;
+			
+			//reset player's position and velocity
+			this.visible = false;
+			
+			var self = this;
+			setTimeout(function() {
+				self.visible = true;
+				self.translate(-self.locX, -self.locY);
+				self.translate(WIDTH / 2, HEIGHT / 2);
+				self.velX = 0;
+				self.velY = 0;
+				self.headingDeg = 0;
+				self.topPointX = self.topPointStartX;
+				self.topPointY = self.topPointStartY;
+				self.leftPointX = self.leftPointStartX;
+				self.leftPointY = self.leftPointStartY;
+				self.rightPointX = self.rightPointStartX;
+				self.rightPointY = self.rightPointStartY;
+			}, PLR_RESPAWN_COOLDOWN);
+			
+			//check for game over
+			if (this.health <= 0) {
+				this.health = 0;
+				if (gameOver == 0) {
+					if (this.isControlled) {
+						gameOver = playerNum;
+						console.log("player " + playerNum + " lost!");
+					} else {
+						gameOver = otherPlayerNum;
+						console.log("player " + otherPlayerNum + " lost!");
+					}
 				}
 			}
 		}
@@ -351,7 +360,13 @@ function draw() {
 	}
 	
 	//draw alien
-	
+	/*
+	if (alien.visible) {
+		ctx.strokeStyle = "#00FF00";
+		ctx.rect(alien.locX, alien.locY, ALIEN_RADIUS, ALIEN_RADIUS);
+		ctx.stroke();
+	}
+	*/
 	
 	//draw health text
 	ctx.font = "30px Arial";
@@ -359,6 +374,14 @@ function draw() {
 	ctx.fillText("P1: " + plr1.health, 30, 50);
 	ctx.fillStyle = "green";
 	ctx.fillText("P2: " + plr2.health, WIDTH - 100, 50);
+	
+	//draw start game text
+	if (!allPlayersJoined) {
+		ctx.fillStyle = "white";
+		ctx.fillText("Waiting for Player 2...", WIDTH / 2 - 150, HEIGHT / 2);
+	}
+	
+	//draw gameover text
 	ctx.fillStyle = "red";
 	if (gameOver == 1) {
 		ctx.fillText("Player 1 Lost!", WIDTH / 2 - 100, HEIGHT / 2);
@@ -454,6 +477,10 @@ socket.on("asteroids", function(data) {
 	asteroids = data;
 });
 
+socket.on("alien", function(data) {
+	alien = data;
+})
+
 socket.on("playerHurt", function(data) {
 	if (data.hurt) {
 		if (data.plrNum == 1 && plr1) {
@@ -461,6 +488,12 @@ socket.on("playerHurt", function(data) {
 		} else if (data.plrNum == 2 && plr2) {
 			plr2.damaged();
 		}
+	}
+});
+
+socket.on("allPlayersJoined", function(data) {
+	if (data) {
+		allPlayersJoined = true;
 	}
 });
 

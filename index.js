@@ -28,7 +28,7 @@ var io = socket(server);
 const WIDTH = 600;
 const HEIGHT = 600;
 
-const PLR_TOP_Y_OFFSET = 10;
+const PLR_HIT_COOLDOWN = 2000;
 
 const PROJ_RADIUS = 3;
 const PROJ_SPEED = 3;
@@ -44,14 +44,20 @@ const AST_MAX_SPEED_MEDIUM = 1.0;
 const AST_MAX_SPEED_SMALL = 1.5;
 const AST_MAX_ROT_SPEED = 1;
 
+const ALIEN_RADIUS = 20;
+const ALIEN_MAX_SPEED = 2;
+
 //variables
 
 var roomNum = 1;
 var projectiles = [];
 var asteroids = [];
+var alien;
 var plrPoints = [];
 var plr1Points;
 var plr2Points;
+var plr1CanHit = true;
+var plr2CanHit = true;
 
 //classes
 
@@ -120,15 +126,13 @@ function Projectile(locX, locY, headingDeg) {
 		}
 		
 		if (this.visible) {
-			//TODO: combine damage done to players for asteroids and projectiles
+			//TODO: combine collision detection for asteroids and projectiles into a single function
 			//projectile hits player
 			var boundLeft = this.locX - PROJ_RADIUS * 2;
 			var boundRight = this.locX + PROJ_RADIUS * 2;
 			var boundTop = this.locY - PROJ_RADIUS * 2;
 			var boundBottom = this.locY + PROJ_RADIUS * 2;
-			if (plr1Points) {
-				//var plr1Loc = {x: plr1Points.topPointX, y: plr1Points.topPointY - PLR_TOP_Y_OFFSET};
-				
+			if (plr1Points && plr1CanHit) {
 				var plr1Loc = {
 					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
 					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
@@ -136,16 +140,16 @@ function Projectile(locX, locY, headingDeg) {
 				
 				if (plr1Loc.x >= boundLeft && plr1Loc.x <= boundRight && plr1Loc.y >= boundTop && plr1Loc.y <= boundBottom) {
 					//collision
-					console.log("plr1 hit by a projectile!");
+					plr1CanHit = false;
 					this.visible = false;
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
+					
+					setTimeout(function() {plr1CanHit = true;}, PLR_HIT_COOLDOWN);
 				}
 			}
 			
-			if (plr2Points) {
-				//var plr2Loc = {x: plr2Points.topPointX, y: plr2Points.topPointY - PLR_TOP_Y_OFFSET};
-				
+			if (plr2Points && plr2CanHit) {
 				var plr2Loc = {
 					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
 					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
@@ -153,10 +157,12 @@ function Projectile(locX, locY, headingDeg) {
 				
 				if (plr2Loc.x >= boundLeft && plr2Loc.x <= boundRight && plr2Loc.y >= boundTop && plr2Loc.y <= boundBottom) {
 					//collision
-					console.log("plr2 hit by a projectile!");
+					plr2CanHit = false;
 					this.visible = false;
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
+					
+					setTimeout(function() {plr2CanHit = true;}, PLR_HIT_COOLDOWN);
 				}
 			}
 		}
@@ -215,7 +221,7 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 			//asteroids hits player
 			//TODO: handle using array
 			var collision = false;
-			if (plr1Points) {
+			if (plr1Points && plr1CanHit) {
 				var plr1Loc = {
 					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
 					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
@@ -223,14 +229,16 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 				
 				if (plr1Loc.x > boundLeft && plr1Loc.x < boundRight && plr1Loc.y > boundTop && plr1Loc.y < boundBottom) {
 					//collision
-					console.log("plr1 collision!");
+					plr1CanHit = false;
 					collision = true;
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
+					
+					setTimeout(function() {plr1CanHit = true;}, PLR_HIT_COOLDOWN);
 				}
 			}
 			
-			if (plr2Points) {
+			if (plr2Points && plr2CanHit) {
 				var plr2Loc = {
 					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
 					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
@@ -238,10 +246,12 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 				
 				if (plr2Loc.x > boundLeft && plr2Loc.x < boundRight && plr2Loc.y > boundTop && plr2Loc.y < boundBottom) {
 					//collision
-					console.log("plr2 collision!");
+					plr2CanHit = false;
 					collision = true;
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
 					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
+					
+					setTimeout(function() {plr2CanHit = true;}, PLR_HIT_COOLDOWN);
 				}
 			}
 			
@@ -274,6 +284,56 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 	}
 }
 
+function Alien() {
+	this.locX = 0;
+	this.locY = 0;
+	
+	//choose random edge of screen to come from
+	var randEdge = calcRand(0, 4);
+	var randLoc = calcRand(0, 100) / 100;
+	
+	switch(randEdge) {
+		case 0:
+			//left
+			this.locX = 0;
+			this.locY = HEIGHT * randLoc;
+			break;
+		case 1:
+			//right
+			this.locX = WIDTH;
+			this.locY = HEIGHT * randLoc;
+			break;
+		case 2:
+			//top
+			this.locX = WIDTH * randLoc;
+			this.locY = 0;
+			break;
+		default:
+			//bottom
+			this.locX = WIDTH * randLoc;
+			this.locY = HEIGHT;
+	}
+	
+	//move toward center
+	this.velX = ALIEN_MAX_SPEED * (WIDTH / 2 - this.locX);
+	this.velY = ALIEN_MAX_SPEED * (HEIGHT / 2 - this.locY);
+	
+	this.visible = true;
+	
+	
+	this.updateMovement = function() {
+		this.locX += this.velX;
+		this.locY += this.velY;
+		
+		//TODO: make more complicated movements
+		//TODO: handle movement off of window (set to not visible or something)
+	}
+	
+	this.checkCollisions = function() {
+		//TODO
+	}
+}
+
 //update projectile movement
 function updateProjectiles(roomNum) {
 	if (plr1Points && plr2Points) {
@@ -296,6 +356,15 @@ function updateAsteroids(roomNum) {
 	}
 	
 	io.sockets.in("room_" + roomNum).emit("asteroids", asteroids);
+}
+
+function updateAlien(roomNum) {
+	if (plr1Points && plr2Points) {
+		alien.updateMovement();
+		alien.checkCollisions();
+	}
+	
+	io.sockets.in("room_" + roomNum).emit("alien", alien);
 }
 
 //client connect
@@ -335,6 +404,13 @@ io.on("connection", function(socket) {
 		}
 		
 		setInterval(function() {updateAsteroids(roomNum)}, 10);
+		
+		//make alien and update movement
+		alien = new Alien();
+		
+		setInterval(function() {updateAlien(roomNum)}, 10);
+	} else {
+		io.sockets.in("room_" + roomNum).emit("allPlayersJoined", true);
 	}
 	
 	//make new projectile
