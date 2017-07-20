@@ -31,7 +31,7 @@ const PLR_RESPAWN_COOLDOWN = 1000;
 const PROJ_RADIUS = 3;
 const PROJ_START_DIST = 5;
 
-const ALIEN_RADIUS = 20;
+const ALIEN_RADIUS = 40;
 
 //global variables
 var socket = io.connect("http://localhost:3000");
@@ -360,13 +360,12 @@ function draw() {
 	}
 	
 	//draw alien
-	/*
-	if (alien.visible) {
-		ctx.strokeStyle = "#00FF00";
-		ctx.rect(alien.locX, alien.locY, ALIEN_RADIUS, ALIEN_RADIUS);
+	ctx.strokeStyle = "#00FF00";
+	if (alien && alien.visible) {
+		ctx.beginPath();
+		ctx.rect(alien.locX - ALIEN_RADIUS, alien.locY - ALIEN_RADIUS, ALIEN_RADIUS, ALIEN_RADIUS);
 		ctx.stroke();
 	}
-	*/
 	
 	//draw health text
 	ctx.font = "30px Arial";

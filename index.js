@@ -44,8 +44,9 @@ const AST_MAX_SPEED_MEDIUM = 1.0;
 const AST_MAX_SPEED_SMALL = 1.5;
 const AST_MAX_ROT_SPEED = 1;
 
-const ALIEN_RADIUS = 20;
-const ALIEN_MAX_SPEED = 2;
+const ALIEN_RADIUS = 40;
+const ALIEN_MAX_SPEED = 0.001;
+const ALIEN_COOLDOWN = 10000;
 
 //variables
 
@@ -287,50 +288,117 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 function Alien() {
 	this.locX = 0;
 	this.locY = 0;
+	this.velX = 0;
+	this.velY = 0;
+	this.visible = false;
 	
-	//choose random edge of screen to come from
-	var randEdge = calcRand(0, 4);
-	var randLoc = calcRand(0, 100) / 100;
-	
-	switch(randEdge) {
-		case 0:
-			//left
-			this.locX = 0;
-			this.locY = HEIGHT * randLoc;
-			break;
-		case 1:
-			//right
-			this.locX = WIDTH;
-			this.locY = HEIGHT * randLoc;
-			break;
-		case 2:
-			//top
-			this.locX = WIDTH * randLoc;
-			this.locY = 0;
-			break;
-		default:
-			//bottom
-			this.locX = WIDTH * randLoc;
-			this.locY = HEIGHT;
+	this.generateNew = function() {
+		//choose random edge of screen to come from
+		var randEdge = calcRand(0, 4);
+		var randLoc = calcRand(0, 100) / 100;
+		
+		switch(randEdge) {
+			case 0:
+				//left
+				this.locX = 0;
+				this.locY = HEIGHT * randLoc;
+				break;
+			case 1:
+				//right
+				this.locX = WIDTH;
+				this.locY = HEIGHT * randLoc;
+				break;
+			case 2:
+				//top
+				this.locX = WIDTH * randLoc;
+				this.locY = 0;
+				break;
+			default:
+				//bottom
+				this.locX = WIDTH * randLoc;
+				this.locY = HEIGHT;
+		}
+		
+		//move toward center
+		this.velX = ALIEN_MAX_SPEED * (WIDTH / 2 - this.locX);
+		this.velY = ALIEN_MAX_SPEED * (HEIGHT / 2 - this.locY);
+		
+		this.visible = true;
 	}
 	
-	//move toward center
-	this.velX = ALIEN_MAX_SPEED * (WIDTH / 2 - this.locX);
-	this.velY = ALIEN_MAX_SPEED * (HEIGHT / 2 - this.locY);
-	
-	this.visible = true;
-	
-	
 	this.updateMovement = function() {
-		this.locX += this.velX;
-		this.locY += this.velY;
-		
-		//TODO: make more complicated movements
-		//TODO: handle movement off of window (set to not visible or something)
+		if (this.visible) {
+			this.locX += this.velX;
+			this.locY += this.velY;
+			
+			//TODO: make more complicated movements
+			
+			if (this.locX < 0 || this.locX > WIDTH || this.locY < 0 || this.locY > HEIGHT) {
+				this.visible = false;
+				var self = this;
+				setTimeout(function() {self.generateNew()}, ALIEN_COOLDOWN);
+			}
+		}
 	}
 	
 	this.checkCollisions = function() {
 		//TODO
+		if (this.visible) {
+			//hit player
+			var collisionRadius = ALIEN_RADIUS;
+			var boundLeft = this.locX - collisionRadius;
+			var boundRight = this.locX + collisionRadius;
+			var boundTop = this.locY - collisionRadius;
+			var boundBottom = this.locY + collisionRadius;
+			
+			var self = this;
+			
+			//alien hits player
+			if (plr1Points && plr1CanHit) {
+				var plr1Loc = {
+					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
+					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
+				};
+				
+				if (plr1Loc.x > boundLeft && plr1Loc.x < boundRight && plr1Loc.y > boundTop && plr1Loc.y < boundBottom) {
+					//collision
+					plr1CanHit = false;
+					this.visible = false;
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
+					
+					setTimeout(function() {plr1CanHit = true;}, PLR_HIT_COOLDOWN);
+					
+					setTimeout(function() {self.generateNew()}, ALIEN_COOLDOWN);
+				}
+			}
+			
+			if (plr2Points && plr2CanHit) {
+				var plr2Loc = {
+					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
+					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
+				};
+				
+				if (plr2Loc.x > boundLeft && plr2Loc.x < boundRight && plr2Loc.y > boundTop && plr2Loc.y < boundBottom) {
+					//collision
+					plr2CanHit = false;
+					this.visible = false;
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
+					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
+					
+					setTimeout(function() {plr2CanHit = true;}, PLR_HIT_COOLDOWN);
+					
+					setTimeout(function() {self.generateNew()}, ALIEN_COOLDOWN);
+				}
+			}
+		}
+	}
+	
+	this.shoot = function() {
+		//TODO
+		if (this.visible) {
+			
+		}
 	}
 }
 
@@ -407,8 +475,10 @@ io.on("connection", function(socket) {
 		
 		//make alien and update movement
 		alien = new Alien();
+		alien.generateNew();
 		
 		setInterval(function() {updateAlien(roomNum)}, 10);
+		setInterval(alien.shoot, 1000);
 	} else {
 		io.sockets.in("room_" + roomNum).emit("allPlayersJoined", true);
 	}
@@ -424,6 +494,46 @@ io.on("connection", function(socket) {
 		console.log("a user disconnected from room_" + rNum);
 	});
 });
+
+/*
+function detectPlayerCollision() {
+	var plrPoints;
+	var plrCanHit;
+	var plrLoc;
+	
+	for (var i = 1; i < 3; ++i) {
+		if (i == 1) {
+			plrPoints = plr1Points;
+			plrCanHit = plr1CanHit;
+		} else {
+			plrPoints = plr2Points;
+			plrCanHit = plr2CanHit;
+		}
+		
+		plrLoc = {
+			x: (plrPoints.topPointX + plrPoints.leftPointX + plrPoints.rightPointX) / 3,
+			y: (plrPoints.topPointY + plrPoints.leftPointY + plrPoints.rightPointY) / 3
+		};
+	}
+	
+	if (plr1Points && plr1CanHit) {
+		var plr1Loc = {
+			x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
+			y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
+		};
+		
+		if (plr1Loc.x > boundLeft && plr1Loc.x < boundRight && plr1Loc.y > boundTop && plr1Loc.y < boundBottom) {
+			//collision
+			plr1CanHit = false;
+			collision = true;
+			io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
+			io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
+			
+			setTimeout(function() {plr1CanHit = true;}, PLR_HIT_COOLDOWN);
+		}
+	}
+}
+*/
 
 //converts from degrees to radians
 function degToRad(deg) {
