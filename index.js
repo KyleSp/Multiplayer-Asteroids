@@ -44,9 +44,10 @@ const AST_MAX_SPEED_MEDIUM = 1.0;
 const AST_MAX_SPEED_SMALL = 1.5;
 const AST_MAX_ROT_SPEED = 1;
 
-const ALIEN_RADIUS = 40;
+const ALIEN_RADIUS = 20;
 const ALIEN_MAX_SPEED = 0.001;
-const ALIEN_COOLDOWN = 10000;
+const ALIEN_RESPAWN_COOLDOWN = 10000;
+const ALIEN_SHOOT_COOLDOWN = 1000;
 
 //variables
 
@@ -62,7 +63,7 @@ var plr2CanHit = true;
 
 //classes
 
-function Projectile(locX, locY, headingDeg) {
+function Projectile(locX, locY, headingDeg, fromAlien) {
 	this.locX = locX;
 	this.locY = locY;
 	
@@ -73,6 +74,8 @@ function Projectile(locX, locY, headingDeg) {
 	this.velY = PROJ_SPEED * Math.sin(headingRad - Math.PI / 2);
 	
 	this.visible = true;
+	
+	this.fromAlien = fromAlien;
 	
 	var self = this;
 	setTimeout(function() {
@@ -109,12 +112,14 @@ function Projectile(locX, locY, headingDeg) {
 			for (var i = 0; i < asteroids.length; ++i) {
 				if (asteroids[i].visible) {
 					var collisionRadius = asteroids[i].radius * AST_COLLISION_PERCENT;
-					var boundLeft = asteroids[i].locX - collisionRadius;
-					var boundRight = asteroids[i].locX + collisionRadius;
-					var boundTop = asteroids[i].locY - collisionRadius;
-					var boundBottom = asteroids[i].locY + collisionRadius;
+					var bounds = {
+						left: asteroids[i].locX - collisionRadius,
+						right: asteroids[i].locX + collisionRadius,
+						top: asteroids[i].locY - collisionRadius,
+						bottom: asteroids[i].locY + collisionRadius
+					};
 					
-					if (this.locX > boundLeft && this.locX < boundRight && this.locY > boundTop && this.locY < boundBottom) {
+					if (this.locX > bounds.left && this.locX < bounds.right && this.locY > bounds.top && this.locY < bounds.bottom) {
 						//collision
 						this.visible = false;
 						
@@ -138,6 +143,32 @@ function Projectile(locX, locY, headingDeg) {
 			if (checkPlayerCollisions(roomNum, bounds)) {
 				this.visible = false;
 			}
+		}
+		
+		if (this.visible && !this.fromAlien) {
+			//projectile hits alien
+			var bounds = {
+				left: alien.locX - ALIEN_RADIUS,
+				right: alien.locX + ALIEN_RADIUS,
+				top: alien.locY - ALIEN_RADIUS,
+				bottom: alien.locY + ALIEN_RADIUS
+			};
+			
+			if (this.locX > bounds.left && this.locX < bounds.right && this.locY > bounds.top && this.locY < bounds.bottom) {
+				//collision
+				this.visible = false;
+				
+				alien.visible = false;
+				
+				//move destroyed alien out of way
+				alien.locX = -ALIEN_RADIUS * 2;
+				alien.locY = -ALIEN_RADIUS * 2;
+				
+				setTimeout(function() {
+					alien.generateNew();
+				}, ALIEN_RESPAWN_COOLDOWN);
+			}
+			
 		}
 	}
 }
@@ -275,7 +306,7 @@ function Alien() {
 			if (this.locX < 0 || this.locX > WIDTH || this.locY < 0 || this.locY > HEIGHT) {
 				this.visible = false;
 				var self = this;
-				setTimeout(function() {self.generateNew()}, ALIEN_COOLDOWN);
+				setTimeout(function() {self.generateNew()}, ALIEN_RESPAWN_COOLDOWN);
 			}
 		}
 	}
@@ -283,28 +314,66 @@ function Alien() {
 	this.checkCollisions = function() {
 		if (this.visible) {
 			//alien hits player
-			var collisionRadius = ALIEN_RADIUS;
-			
 			var bounds = {
-				left: this.locX - collisionRadius,
-				right: this.locX + collisionRadius,
-				top: this.locY - collisionRadius,
-				bottom: this.locY + collisionRadius
+				left: this.locX - ALIEN_RADIUS,
+				right: this.locX + ALIEN_RADIUS,
+				top: this.locY - ALIEN_RADIUS,
+				bottom: this.locY + ALIEN_RADIUS
 			};
 			
 			var self = this;
 			
 			if (checkPlayerCollisions(roomNum, bounds)) {
 				this.visible = false;
-				setTimeout(function() {self.generateNew()}, ALIEN_COOLDOWN);
+				setTimeout(function() {self.generateNew()}, ALIEN_RESPAWN_COOLDOWN);
 			}
+		}
+		
+		if (this.visible) {
+			//alien hits asteroid
+			var bounds = {
+				left: this.locX - ALIEN_RADIUS,
+				right: this.locX + ALIEN_RADIUS,
+				top: this.locY - ALIEN_RADIUS,
+				bottom: this.locY + ALIEN_RADIUS
+			};
+			
+			for (var i = 0; i < asteroids.length; ++i) {
+				var astLoc = {x: asteroids[i].locX, y: asteroids[i].locY};
+				
+				if (astLoc.x > bounds.left && astLoc.x < bounds.right && astLoc.y > bounds.top && astLoc.y < bounds.bottom) {
+					this.visible = false;
+					asteroids[i].visible = false;
+					asteroids[i].makeSmallerAsteroids(2);
+					setTimeout(function() {self.generateNew()}, ALIEN_RESPAWN_COOLDOWN);
+				}
+			}
+			
 		}
 	}
 	
 	this.shoot = function() {
-		//TODO
-		if (this.visible) {
+		if (plr1Points && plr2Points && this.visible) {
+			var target = calcRand(1, 3);
+			var plrPoints;
+			if (target == 1) {
+				plrPoints = plr1Points;
+			} else {
+				plrPoints = plr2Points;
+			}
 			
+			plrLoc = {
+				x: (plrPoints.topPointX + plrPoints.leftPointX + plrPoints.rightPointX) / 3,
+				y: (plrPoints.topPointY + plrPoints.leftPointY + plrPoints.rightPointY) / 3
+			};
+			
+			//TODO: fix shooting direction
+			
+			var dx = plrLoc.x - this.locX;
+			var dy = plrLoc.y - this.locY;
+			var headingDeg = radToDeg(Math.atan(dx / dy));
+			
+			projectiles.push(new Projectile(this.locX, this.locY, headingDeg - 90, true));
 		}
 	}
 }
@@ -382,17 +451,18 @@ io.on("connection", function(socket) {
 		
 		//make alien and update movement
 		alien = new Alien();
-		alien.generateNew();
+		
+		setTimeout(function() {alien.generateNew()}, ALIEN_RESPAWN_COOLDOWN);
 		
 		setInterval(function() {updateAlien(roomNum)}, 10);
-		setInterval(alien.shoot, 1000);
+		setInterval(function() {alien.shoot()}, ALIEN_SHOOT_COOLDOWN);
 	} else {
 		io.sockets.in("room_" + roomNum).emit("allPlayersJoined", true);
 	}
 	
 	//make new projectile
 	socket.on("makeProj", function(data) {
-		projectiles.push(new Projectile(data.locX, data.locY, data.headingDeg));
+		projectiles.push(new Projectile(data.locX, data.locY, data.headingDeg, false));
 	});
 	
 	//when a client disconnects
@@ -430,7 +500,7 @@ function checkPlayerCollisions(roomNum, bounds) {
 				io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: i, hurt: false});
 				
 				var index = i;
-				setTimeout(function() {console.log("value of index: " + index); (index == 1) ? plr1CanHit = true : plr2CanHit = true;}, PLR_HIT_COOLDOWN);
+				setTimeout(function() {(index == 1) ? plr1CanHit = true : plr2CanHit = true;}, PLR_HIT_COOLDOWN);
 				
 				collision = true;
 			}
@@ -443,6 +513,11 @@ function checkPlayerCollisions(roomNum, bounds) {
 //converts from degrees to radians
 function degToRad(deg) {
 	return (deg * Math.PI / 180);
+}
+
+//converts from radians to degrees
+function radToDeg(rad) {
+	return (rad * 180 / Math.PI);
 }
 
 //calculate a random integer from min (inclusive) to max (exclusive)

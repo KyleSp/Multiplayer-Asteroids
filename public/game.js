@@ -31,7 +31,9 @@ const PLR_RESPAWN_COOLDOWN = 1000;
 const PROJ_RADIUS = 3;
 const PROJ_START_DIST = 5;
 
-const ALIEN_RADIUS = 40;
+const NUM_AST = 4;
+
+const ALIEN_RADIUS = 20;
 
 //global variables
 var socket = io.connect("http://localhost:3000");
@@ -61,8 +63,18 @@ var canShoot = true;
 var plr1;
 var plr2;
 var projectiles = [];
+var numProjs = 0;
 var asteroids = [];
+var numAstsVisible = NUM_AST;
 var alien;
+var alienVisible = false;
+
+var soundMovement;
+var soundFire;
+var soundBang;
+
+//TODO
+//alien collision with asteroid
 
 //classes
 
@@ -101,6 +113,8 @@ function Player(isControlled) {
 	this.velX = 0;
 	this.velY = 0;
 	
+	this.forwardSpeed = 0;
+	
 	this.health = PLR_MAX_HEALTH;
 	
 	this.visible = true;
@@ -136,10 +150,13 @@ function Player(isControlled) {
 			//movement
 			
 			var headingRad = degToRad(this.headingDeg);
-			var forwardSpeed = 0;
 			if (upPressed) {
 				//move forward
 				forwardSpeed = 1;
+				//soundMovement.play();
+			} else {
+				forwardSpeed = 0;
+				//soundMovement.stop();
 			}
 			/*else if (downPressed) {
 				//move backward
@@ -247,6 +264,9 @@ function Player(isControlled) {
 		if (this.visible) {
 			this.health -= 1;
 			
+			//play explosion sound
+			soundBang.play();
+			
 			//reset player's position and velocity
 			this.visible = false;
 			
@@ -283,6 +303,29 @@ function Player(isControlled) {
 	}
 }
 
+function Sound(source) {
+	this.sound = document.createElement("audio");
+	this.sound.src = source;
+	this.sound.setAttribute("preload", "auto");
+	this.sound.setAttribute("controls", "none");
+	this.sound.style.display = "none";
+	
+	document.body.appendChild(this.sound);
+	
+	this.isPlaying = false;
+	
+	this.play = function() {
+		this.sound.play();
+		this.isPlaying = true;
+	}
+	
+	this.stop = function() {
+		this.sound.pause();
+		this.isPlaying = false;
+		this.sound.currentTime = 0;
+	}
+}
+
 //functions
 function start() {
 	setInterval(game, 10);
@@ -294,6 +337,11 @@ function game() {
 			gameStarted = true;
 			plr1 = new Player(playerNum == 1);
 			plr2 = new Player(playerNum == 2);
+			
+			//setup sounds
+			soundMovement = new Sound("sounds/thrust.wav");
+			soundFire = new Sound("sounds/fire.wav");
+			soundBang = new Sound("sounds/bangLarge.wav");
 		} else {
 			//update
 			plr1.updateMovement();
@@ -321,6 +369,20 @@ function draw() {
 	
 	//draw asteroids
 	ctx.strokeStyle = "#FF0000";
+	
+	//play sound
+	var numVisible = 0;
+	for (var i = 0; i < asteroids.length; ++i) {
+		if (asteroids[i].visible) {
+			++numVisible;
+		}
+	}
+	if (numVisible != numAstsVisible) {
+		soundBang.play();
+	}
+	numAstsVisible = numVisible;
+	
+	
 	for (var i = 0; i < asteroids.length; ++i) {
 		if (asteroids[i].visible) {
 			var locX = asteroids[i].locX;
@@ -351,6 +413,13 @@ function draw() {
 	
 	//draw projectiles
 	ctx.strokeStyle = "#FFFF00";
+	
+	//play sound
+	if (projectiles.length != numProjs) {
+		soundFire.play();
+	}
+	numProjs = projectiles.length;
+	
 	for (var i = 0; i < projectiles.length; ++i) {
 		if (projectiles[i].visible) {
 			ctx.beginPath();
@@ -361,10 +430,19 @@ function draw() {
 	
 	//draw alien
 	ctx.strokeStyle = "#00FF00";
-	if (alien && alien.visible) {
-		ctx.beginPath();
-		ctx.rect(alien.locX - ALIEN_RADIUS, alien.locY - ALIEN_RADIUS, ALIEN_RADIUS, ALIEN_RADIUS);
-		ctx.stroke();
+	
+	//play sound
+	if (alien) {
+		if (alienVisible && !alien.visible) {
+			soundBang.play();
+		}
+		alienVisible = alien.visible;
+		
+		if (alien.visible) {
+			ctx.beginPath();
+			ctx.rect(alien.locX - ALIEN_RADIUS, alien.locY - ALIEN_RADIUS, ALIEN_RADIUS * 2, ALIEN_RADIUS * 2);
+			ctx.stroke();
+		}
 	}
 	
 	//draw health text
