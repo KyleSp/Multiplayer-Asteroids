@@ -103,7 +103,7 @@ function Projectile(locX, locY, headingDeg) {
 		}
 	}
 	
-	this.checkCollisions = function() {
+	this.checkCollisions = function(roomNum) {
 		if (this.visible) {
 			//projectile hits asteroid
 			for (var i = 0; i < asteroids.length; ++i) {
@@ -127,44 +127,16 @@ function Projectile(locX, locY, headingDeg) {
 		}
 		
 		if (this.visible) {
-			//TODO: combine collision detection for asteroids and projectiles into a single function
 			//projectile hits player
-			var boundLeft = this.locX - PROJ_RADIUS * 2;
-			var boundRight = this.locX + PROJ_RADIUS * 2;
-			var boundTop = this.locY - PROJ_RADIUS * 2;
-			var boundBottom = this.locY + PROJ_RADIUS * 2;
-			if (plr1Points && plr1CanHit) {
-				var plr1Loc = {
-					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
-					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
-				};
-				
-				if (plr1Loc.x >= boundLeft && plr1Loc.x <= boundRight && plr1Loc.y >= boundTop && plr1Loc.y <= boundBottom) {
-					//collision
-					plr1CanHit = false;
-					this.visible = false;
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
-					
-					setTimeout(function() {plr1CanHit = true;}, PLR_HIT_COOLDOWN);
-				}
-			}
+			var bounds = {
+				left: this.locX - PROJ_RADIUS * 2,
+				right: this.locX + PROJ_RADIUS * 2,
+				top: this.locY - PROJ_RADIUS * 2,
+				bottom: this.locY + PROJ_RADIUS * 2
+			};
 			
-			if (plr2Points && plr2CanHit) {
-				var plr2Loc = {
-					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
-					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
-				};
-				
-				if (plr2Loc.x >= boundLeft && plr2Loc.x <= boundRight && plr2Loc.y >= boundTop && plr2Loc.y <= boundBottom) {
-					//collision
-					plr2CanHit = false;
-					this.visible = false;
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
-					
-					setTimeout(function() {plr2CanHit = true;}, PLR_HIT_COOLDOWN);
-				}
+			if (checkPlayerCollisions(roomNum, bounds)) {
+				this.visible = false;
 			}
 		}
 	}
@@ -212,52 +184,19 @@ function Asteroid(locX, locY, radius, maxSpeed) {
 	}
 	
 	this.checkCollisions = function(roomNum) {
+		//asteroid hits player
 		if (this.visible) {
 			var collisionRadius = this.radius * AST_COLLISION_PERCENT;
-			var boundLeft = this.locX - collisionRadius;
-			var boundRight = this.locX + collisionRadius;
-			var boundTop = this.locY - collisionRadius;
-			var boundBottom = this.locY + collisionRadius;
 			
-			//asteroids hits player
-			//TODO: handle using array
-			var collision = false;
-			if (plr1Points && plr1CanHit) {
-				var plr1Loc = {
-					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
-					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
-				};
-				
-				if (plr1Loc.x > boundLeft && plr1Loc.x < boundRight && plr1Loc.y > boundTop && plr1Loc.y < boundBottom) {
-					//collision
-					plr1CanHit = false;
-					collision = true;
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
-					
-					setTimeout(function() {plr1CanHit = true;}, PLR_HIT_COOLDOWN);
-				}
-			}
+			var bounds = {
+				left: this.locX - collisionRadius,
+				right: this.locX + collisionRadius,
+				top: this.locY - collisionRadius,
+				bottom: this.locY + collisionRadius
+			};
 			
-			if (plr2Points && plr2CanHit) {
-				var plr2Loc = {
-					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
-					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
-				};
-				
-				if (plr2Loc.x > boundLeft && plr2Loc.x < boundRight && plr2Loc.y > boundTop && plr2Loc.y < boundBottom) {
-					//collision
-					plr2CanHit = false;
-					collision = true;
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
-					
-					setTimeout(function() {plr2CanHit = true;}, PLR_HIT_COOLDOWN);
-				}
-			}
-			
-			//make smaller asteroids
-			if (collision) {
+			if (checkPlayerCollisions(roomNum, bounds)) {
+				this.visible = false;
 				this.makeSmallerAsteroids(2);
 			}
 		}
@@ -342,54 +281,22 @@ function Alien() {
 	}
 	
 	this.checkCollisions = function() {
-		//TODO
 		if (this.visible) {
-			//hit player
+			//alien hits player
 			var collisionRadius = ALIEN_RADIUS;
-			var boundLeft = this.locX - collisionRadius;
-			var boundRight = this.locX + collisionRadius;
-			var boundTop = this.locY - collisionRadius;
-			var boundBottom = this.locY + collisionRadius;
+			
+			var bounds = {
+				left: this.locX - collisionRadius,
+				right: this.locX + collisionRadius,
+				top: this.locY - collisionRadius,
+				bottom: this.locY + collisionRadius
+			};
 			
 			var self = this;
 			
-			//alien hits player
-			if (plr1Points && plr1CanHit) {
-				var plr1Loc = {
-					x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
-					y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
-				};
-				
-				if (plr1Loc.x > boundLeft && plr1Loc.x < boundRight && plr1Loc.y > boundTop && plr1Loc.y < boundBottom) {
-					//collision
-					plr1CanHit = false;
-					this.visible = false;
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
-					
-					setTimeout(function() {plr1CanHit = true;}, PLR_HIT_COOLDOWN);
-					
-					setTimeout(function() {self.generateNew()}, ALIEN_COOLDOWN);
-				}
-			}
-			
-			if (plr2Points && plr2CanHit) {
-				var plr2Loc = {
-					x: (plr2Points.topPointX + plr2Points.leftPointX + plr2Points.rightPointX) / 3,
-					y: (plr2Points.topPointY + plr2Points.leftPointY + plr2Points.rightPointY) / 3
-				};
-				
-				if (plr2Loc.x > boundLeft && plr2Loc.x < boundRight && plr2Loc.y > boundTop && plr2Loc.y < boundBottom) {
-					//collision
-					plr2CanHit = false;
-					this.visible = false;
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: true});
-					io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 2, hurt: false});
-					
-					setTimeout(function() {plr2CanHit = true;}, PLR_HIT_COOLDOWN);
-					
-					setTimeout(function() {self.generateNew()}, ALIEN_COOLDOWN);
-				}
+			if (checkPlayerCollisions(roomNum, bounds)) {
+				this.visible = false;
+				setTimeout(function() {self.generateNew()}, ALIEN_COOLDOWN);
 			}
 		}
 	}
@@ -407,7 +314,7 @@ function updateProjectiles(roomNum) {
 	if (plr1Points && plr2Points) {
 		for (var i = 0; i < projectiles.length; ++i) {
 			projectiles[i].updateMovement();
-			projectiles[i].checkCollisions();
+			projectiles[i].checkCollisions(roomNum);
 		}
 	}
 		
@@ -495,11 +402,11 @@ io.on("connection", function(socket) {
 	});
 });
 
-/*
-function detectPlayerCollision() {
+function checkPlayerCollisions(roomNum, bounds) {
 	var plrPoints;
 	var plrCanHit;
 	var plrLoc;
+	var collision = false;
 	
 	for (var i = 1; i < 3; ++i) {
 		if (i == 1) {
@@ -510,30 +417,28 @@ function detectPlayerCollision() {
 			plrCanHit = plr2CanHit;
 		}
 		
-		plrLoc = {
-			x: (plrPoints.topPointX + plrPoints.leftPointX + plrPoints.rightPointX) / 3,
-			y: (plrPoints.topPointY + plrPoints.leftPointY + plrPoints.rightPointY) / 3
-		};
-	}
-	
-	if (plr1Points && plr1CanHit) {
-		var plr1Loc = {
-			x: (plr1Points.topPointX + plr1Points.leftPointX + plr1Points.rightPointX) / 3,
-			y: (plr1Points.topPointY + plr1Points.leftPointY + plr1Points.rightPointY) / 3
-		};
-		
-		if (plr1Loc.x > boundLeft && plr1Loc.x < boundRight && plr1Loc.y > boundTop && plr1Loc.y < boundBottom) {
-			//collision
-			plr1CanHit = false;
-			collision = true;
-			io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: true});
-			io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: 1, hurt: false});
+		if (plrCanHit) {
+			plrLoc = {
+				x: (plrPoints.topPointX + plrPoints.leftPointX + plrPoints.rightPointX) / 3,
+				y: (plrPoints.topPointY + plrPoints.leftPointY + plrPoints.rightPointY) / 3
+			};
 			
-			setTimeout(function() {plr1CanHit = true;}, PLR_HIT_COOLDOWN);
+			if (plrLoc.x > bounds.left && plrLoc.x < bounds.right && plrLoc.y > bounds.top && plrLoc.y < bounds.bottom) {
+				//collision
+				(i == 1) ? plr1CanHit = false : plr2CanHit = false;
+				io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: i, hurt: true});
+				io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: i, hurt: false});
+				
+				var index = i;
+				setTimeout(function() {console.log("value of index: " + index); (index == 1) ? plr1CanHit = true : plr2CanHit = true;}, PLR_HIT_COOLDOWN);
+				
+				collision = true;
+			}
 		}
 	}
+	
+	return collision;
 }
-*/
 
 //converts from degrees to radians
 function degToRad(deg) {
