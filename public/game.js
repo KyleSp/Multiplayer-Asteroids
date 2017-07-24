@@ -11,6 +11,8 @@ document.addEventListener("keyup", keyUp, false);
 
 //constants
 
+const SERVER = "http://localhost:3000";
+
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
@@ -36,7 +38,7 @@ const NUM_AST = 4;
 const ALIEN_RADIUS = 20;
 
 //global variables
-var socket = io.connect("http://localhost:3000");
+var socket = io.connect(SERVER);
 var playerNum = 0;
 var otherPlayerNum = 0;
 var gameStarted = false;
@@ -72,9 +74,6 @@ var alienVisible = false;
 var soundMovement;
 var soundFire;
 var soundBang;
-
-//TODO
-//alien collision with asteroid
 
 //classes
 
@@ -484,6 +483,12 @@ function keyDown(evt) {
 	} else if (evt.keyCode == 32) {
 		//spacebar
 		spacebarPressed = true;
+	} else if (evt.keyCode == 82) {
+		//r key
+		if (gameOver != 0) {
+			socket.emit("reset", true);
+			socket.emit("reset", false);
+		}
 	}
 }
 
@@ -571,6 +576,16 @@ socket.on("playerHurt", function(data) {
 socket.on("allPlayersJoined", function(data) {
 	if (data) {
 		allPlayersJoined = true;
+	}
+});
+
+socket.on("reset", function(data) {
+	if (data) {
+		//reset players
+		plr1 = new Player(playerNum == 1);
+		plr2 = new Player(playerNum == 2);
+		
+		gameOver = 0;
 	}
 });
 

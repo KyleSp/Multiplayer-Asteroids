@@ -465,6 +465,26 @@ io.on("connection", function(socket) {
 		projectiles.push(new Projectile(data.locX, data.locY, data.headingDeg, false));
 	});
 	
+	//check for reset of room
+	socket.on("reset", function(data) {
+		if (data) {
+			//remove asteroids and projectiles objects
+			asteroids = [];
+			projectiles = [];
+			
+			//make new objects
+			for (var i = 0; i < NUM_AST; ++i) {
+				asteroids.push(new Asteroid(calcRand(0, WIDTH), calcRand(0, HEIGHT), AST_RADIUS_LARGE, AST_MAX_SPEED_LARGE));
+			}
+			
+			alien = new Alien();
+			
+			//reset players
+			io.sockets.in("room_" + roomNum).emit("reset", true);
+			io.sockets.in("room_" + roomNum).emit("reset", false);
+		}
+	});
+	
 	//when a client disconnects
 	var rNum = roomNum;
 	socket.on("disconnect", function() {
