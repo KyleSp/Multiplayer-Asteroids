@@ -4,6 +4,7 @@
 	Server Code
 */
 
+//TODO: have game scale to each client's window size (use some sort of proportion for the location of each thing)
 //TODO: only send essential properties of objects to clients for asteroids and projectiles (optimization)
 //TODO: make it work for multiple rooms (use 2d arrays)
 //TODO: delete asteroids and projectiles that are no longer visible
@@ -27,6 +28,8 @@ var io = socket(server);
 
 const WIDTH = 600;
 const HEIGHT = 600;
+
+const PLAYERS_PER_ROOM = 3;
 
 const PLR_HIT_COOLDOWN = 2000;
 
@@ -52,14 +55,12 @@ const ALIEN_SHOOT_COOLDOWN = 1000;
 //variables
 
 var roomNum = 1;
+var allPlayersJoined = false;
 var projectiles = [];
 var asteroids = [];
 var alien;
 var plrPoints = [];
-var plr1Points;
-var plr2Points;
-var plr1CanHit = true;
-var plr2CanHit = true;
+var plrCanHit = [];
 
 //classes
 
@@ -353,18 +354,15 @@ function Alien() {
 	}
 	
 	this.shoot = function() {
-		if (plr1Points && plr2Points && this.visible) {
-			var target = calcRand(1, 3);
-			var plrPoints;
-			if (target == 1) {
-				plrPoints = plr1Points;
-			} else {
-				plrPoints = plr2Points;
-			}
+		if (allPlayersJoined && this.visible) {
+			var target = calcRand(0, PLAYERS_PER_ROOM);
+			var points;
+			
+			points = plrPoints[target];
 			
 			plrLoc = {
-				x: (plrPoints.topPointX + plrPoints.leftPointX + plrPoints.rightPointX) / 3,
-				y: (plrPoints.topPointY + plrPoints.leftPointY + plrPoints.rightPointY) / 3
+				x: (points.topPointX + points.leftPointX + points.rightPointX) / 3,
+				y: (points.topPointY + points.leftPointY + points.rightPointY) / 3
 			};
 			
 			//TODO: fix shooting direction
@@ -380,7 +378,7 @@ function Alien() {
 
 //update projectile movement
 function updateProjectiles(roomNum) {
-	if (plr1Points && plr2Points) {
+	if (allPlayersJoined) {
 		for (var i = 0; i < projectiles.length; ++i) {
 			projectiles[i].updateMovement();
 			projectiles[i].checkCollisions(roomNum);
@@ -392,7 +390,7 @@ function updateProjectiles(roomNum) {
 
 //update asteroids movement
 function updateAsteroids(roomNum) {
-	if (plr1Points && plr2Points) {
+	if (allPlayersJoined) {
 		for (var i = 0; i < asteroids.length; ++i) {
 			asteroids[i].updateMovement();
 			asteroids[i].checkCollisions(roomNum);
@@ -403,7 +401,7 @@ function updateAsteroids(roomNum) {
 }
 
 function updateAlien(roomNum) {
-	if (plr1Points && plr2Points) {
+	if (allPlayersJoined) {
 		alien.updateMovement();
 		alien.checkCollisions();
 	}
@@ -413,30 +411,38 @@ function updateAlien(roomNum) {
 
 //client connect
 io.on("connection", function(socket) {
+	/*
 	if (io.nsps["/"].adapter.rooms["room_" + roomNum] && io.nsps["/"].adapter.rooms["room_" + roomNum].length > 1) {
 		++roomNum;
 	}
+	*/
 	
 	socket.join("room_" + roomNum);
 	
 	var playerNum = io.sockets.adapter.rooms["room_" + roomNum].length;
 	
-	console.log("a user connnected to room_" + roomNum);
+	console.log("a user connected to room_" + roomNum);
 	console.log("playerNum: " + playerNum);
 	
 	socket.emit("playerNum", playerNum);
 	
 	//output data to other client in room
 	socket.on("otherPoints_" + playerNum, function(data) {
-		if (playerNum == 1) {
-			plr1Points = data;
-		} else {
-			plr2Points = data;
-		}
+		plrPoints[playerNum - 1] = data;
 		
 		io.sockets.in("room_" + roomNum).emit("otherPoints_" + playerNum, data);
 	});
 	
+	plrPoints.push({
+		topPointX: 0,
+		topPointY: 0,
+		leftPointX: 0,
+		leftPointY: 0,
+		rightPointX: 0,
+		rightPointY: 0
+	});
+	
+	plrCanHit.push(true);
 	
 	if (playerNum == 1) {
 		//update projectile movement
@@ -456,8 +462,10 @@ io.on("connection", function(socket) {
 		
 		setInterval(function() {updateAlien(roomNum)}, 10);
 		setInterval(function() {alien.shoot()}, ALIEN_SHOOT_COOLDOWN);
-	} else {
+	} else if (playerNum == PLAYERS_PER_ROOM) {
+		allPlayersJoined = true;
 		io.sockets.in("room_" + roomNum).emit("allPlayersJoined", true);
+		//++roomNum;
 	}
 	
 	//make new projectile
@@ -493,34 +501,30 @@ io.on("connection", function(socket) {
 });
 
 function checkPlayerCollisions(roomNum, bounds) {
-	var plrPoints;
-	var plrCanHit;
+	var points;
+	var canHit;
 	var plrLoc;
 	var collision = false;
 	
-	for (var i = 1; i < 3; ++i) {
-		if (i == 1) {
-			plrPoints = plr1Points;
-			plrCanHit = plr1CanHit;
-		} else {
-			plrPoints = plr2Points;
-			plrCanHit = plr2CanHit;
-		}
+	for (var i = 0; i < PLAYERS_PER_ROOM; ++i) {
+		points = plrPoints[i];
+		canHit = plrCanHit[i];
 		
-		if (plrCanHit) {
+		if (canHit) {
 			plrLoc = {
-				x: (plrPoints.topPointX + plrPoints.leftPointX + plrPoints.rightPointX) / 3,
-				y: (plrPoints.topPointY + plrPoints.leftPointY + plrPoints.rightPointY) / 3
+				x: (points.topPointX + points.leftPointX + points.rightPointX) / 3,
+				y: (points.topPointY + points.leftPointY + points.rightPointY) / 3
 			};
 			
 			if (plrLoc.x > bounds.left && plrLoc.x < bounds.right && plrLoc.y > bounds.top && plrLoc.y < bounds.bottom) {
 				//collision
-				(i == 1) ? plr1CanHit = false : plr2CanHit = false;
-				io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: i, hurt: true});
-				io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: i, hurt: false});
+				plrCanHit[i] = false;
+				
+				io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: (i + 1), hurt: true});
+				io.sockets.in("room_" + roomNum).emit("playerHurt", {plrNum: (i + 1), hurt: false});
 				
 				var index = i;
-				setTimeout(function() {(index == 1) ? plr1CanHit = true : plr2CanHit = true;}, PLR_HIT_COOLDOWN);
+				setTimeout(function() {plrCanHit[index] = true;}, PLR_HIT_COOLDOWN);
 				
 				collision = true;
 			}

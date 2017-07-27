@@ -11,7 +11,11 @@ document.addEventListener("keyup", keyUp, false);
 
 //constants
 
-const SERVER = "http://localhost:3000";
+//const SERVER = "http://localhost:3000";
+const SERVER = "http://35.2.42.218:3000";
+
+const PLAYERS_PER_ROOM = 3;
+const PLAYER_COLORS = ["#0000FF", "#00FF00", "#FFFFFF"];
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -40,20 +44,12 @@ const ALIEN_RADIUS = 20;
 //global variables
 var socket = io.connect(SERVER);
 var playerNum = 0;
-var otherPlayerNum = 0;
 var gameStarted = false;
 var allPlayersJoined = false;
 var gameOver = 0;
 
 //from other player
-var otherPoints = {
-	topPointX: 0,
-	topPointY: 0,
-	leftPointX: 0,
-	leftPointY: 0,
-	rightPointX: 0,
-	rightPointY: 0
-};
+var otherPoints = [];
 
 var leftPressed = false;
 var upPressed = false;
@@ -62,8 +58,8 @@ var spacebarPressed = false;
 //var downPressed = false;
 var canShoot = true;
 
-var plr1;
-var plr2;
+var players = [];
+
 var projectiles = [];
 var numProjs = 0;
 var asteroids = [];
@@ -77,8 +73,13 @@ var soundBang;
 
 //classes
 
-function Player(isControlled) {
-	this.isControlled = isControlled;
+function OtherPoints() {
+	
+}
+
+function Player(num, color) {
+	this.num = num;
+	this.color = color;
 	
 	//center of triangle
 	this.locX = WIDTH / 2;
@@ -119,7 +120,7 @@ function Player(isControlled) {
 	this.visible = true;
 	
 	this.updateMovement = function() {
-		if (this.isControlled && this.visible) {
+		if (this.num == playerNum && this.visible) {
 			//rotation
 			
 			if (leftPressed) {
@@ -212,12 +213,12 @@ function Player(isControlled) {
 				rightPointY: this.rightPointY
 			});
 		} else {
-			this.topPointX = otherPoints.topPointX;
-			this.topPointY = otherPoints.topPointY;
-			this.leftPointX = otherPoints.leftPointX;
-			this.leftPointY = otherPoints.leftPointY;
-			this.rightPointX = otherPoints.rightPointX;
-			this.rightPointY = otherPoints.rightPointY;
+			this.topPointX = otherPoints[this.num - 1].topPointX;
+			this.topPointY = otherPoints[this.num - 1].topPointY;
+			this.leftPointX = otherPoints[this.num - 1].leftPointX;
+			this.leftPointY = otherPoints[this.num - 1].leftPointY;
+			this.rightPointX = otherPoints[this.num - 1].rightPointX;
+			this.rightPointY = otherPoints[this.num - 1].rightPointY;
 		}
 	}
 	
@@ -235,6 +236,7 @@ function Player(isControlled) {
 	
 	this.draw = function() {
 		if (this.visible) {
+			ctx.strokeStyle = this.color;
 			ctx.beginPath();
 			ctx.moveTo(this.topPointX, this.topPointY);
 			ctx.lineTo(this.leftPointX, this.leftPointY);
@@ -245,7 +247,7 @@ function Player(isControlled) {
 	}
 	
 	this.shoot = function() {
-		if (this.visible && canShoot && spacebarPressed && this.isControlled) {
+		if (this.visible && canShoot && spacebarPressed && this.num == playerNum) {
 			canShoot = false;
 			
 			setTimeout(function() {
@@ -289,13 +291,8 @@ function Player(isControlled) {
 			if (this.health <= 0) {
 				this.health = 0;
 				if (gameOver == 0) {
-					if (this.isControlled) {
-						gameOver = playerNum;
-						console.log("player " + playerNum + " lost!");
-					} else {
-						gameOver = otherPlayerNum;
-						console.log("player " + otherPlayerNum + " lost!");
-					}
+					gameOver = this.num;
+					console.log("player " + gameOver + " lost!");
 				}
 			}
 		}
@@ -331,11 +328,30 @@ function start() {
 }
 
 function game() {
-	if ((playerNum == 1 || playerNum == 2)) {
+	var gotPlayerNum = false;
+	
+	for (var i = 1; i <= PLAYERS_PER_ROOM; ++i) {
+		if (playerNum == i) {
+			gotPlayerNum = true;
+		}
+	}
+	
+	if (gotPlayerNum) {
 		if (!gameStarted) {
 			gameStarted = true;
-			plr1 = new Player(playerNum == 1);
-			plr2 = new Player(playerNum == 2);
+			
+			for (var i = 0; i < PLAYERS_PER_ROOM; ++i) {
+				players.push(new Player(i + 1, PLAYER_COLORS[i]));
+				
+				otherPoints.push({
+					topPointX: 0,
+					topPointY: 0,
+					leftPointX: 0,
+					leftPointY: 0,
+					rightPointX: 0,
+					rightPointY: 0
+				});
+			}
 			
 			//setup sounds
 			soundMovement = new Sound("sounds/thrust.wav");
@@ -343,11 +359,12 @@ function game() {
 			soundBang = new Sound("sounds/bangLarge.wav");
 		} else {
 			//update
-			plr1.updateMovement();
-			plr2.updateMovement();
-			
-			plr1.shoot();
-			plr2.shoot();
+			if (allPlayersJoined) {
+				for (var i = 0; i < PLAYERS_PER_ROOM; ++i) {
+					players[i].updateMovement();
+					players[i].shoot();
+				}
+			}
 			
 			//update draw
 			draw();
@@ -361,10 +378,9 @@ function draw() {
 	ctx.fillRect(0, 0, WIDTH, HEIGHT);
 	
 	//draw players
-	ctx.strokeStyle = "#0000FF";
-	plr1.draw();
-	ctx.strokeStyle = "#00FF00";
-	plr2.draw();
+	for (var i = 0; i < PLAYERS_PER_ROOM; ++i) {
+		players[i].draw();
+	}
 	
 	//draw asteroids
 	ctx.strokeStyle = "#FF0000";
@@ -446,24 +462,29 @@ function draw() {
 	
 	//draw health text
 	ctx.font = "30px Arial";
-	ctx.fillStyle = "blue";
-	ctx.fillText("P1: " + plr1.health, 30, 50);
-	ctx.fillStyle = "green";
-	ctx.fillText("P2: " + plr2.health, WIDTH - 100, 50);
+	//TODO: make for loop for this, have array for locations
+	ctx.fillStyle = players[0].color;
+	console.log("p1 color: " + players[0].color);
+	console.log("color: " + ctx.FillStyle);
+	ctx.fillText("P" + 1 + ": " + players[0].health, 30, 50);
+	ctx.fillStyle = players[1].color;
+	ctx.fillText("P" + 2 + ": " + players[1].health, WIDTH - 100, 50);
+	ctx.fillStyle = players[2].color;
+	ctx.fillText("P" + 3 + ": " + players[2].health, 30, HEIGHT - 25);
 	
 	//draw start game text
 	if (!allPlayersJoined) {
 		ctx.fillStyle = "white";
-		ctx.fillText("Waiting for Player 2...", WIDTH / 2 - 150, HEIGHT / 2);
+		ctx.fillText("Waiting for Additional Players...", WIDTH / 2 - 200, HEIGHT / 2);
 	}
 	
 	//draw gameover text
 	ctx.fillStyle = "red";
-	if (gameOver == 1) {
-		ctx.fillText("Player 1 Lost!", WIDTH / 2 - 100, HEIGHT / 2);
-	}
-	if (gameOver == 2) {
-		ctx.fillText("Player 2 Lost!", WIDTH / 2 - 100, HEIGHT / 2);
+	for (var i = 1; i <= PLAYERS_PER_ROOM; ++i) {
+		if (gameOver == i) {
+			ctx.fillText("Player " + i + " Lost!", WIDTH / 2 - 100, HEIGHT / 2);
+			break;
+		}
 	}
 }
 
@@ -530,25 +551,30 @@ function rotationMatrix(x, y, thetaRad) {
 //get player's number
 socket.on("playerNum", function(num) {
 	playerNum = num;
-	
-	if (num == 1) {
-		otherPlayerNum = 2;
-	} else {
-		otherPlayerNum = 1;
-	}
 });
 
 //get other player's points from server
+/*
+for (var i = 0; i < PLAYERS_PER_ROOM; ++i) {
+	var name = "otherPoints_" + (i + 1);
+	console.log("get with " + name);
+	socket.on(name, function(data) {
+		console.log("get points from " + name);
+		otherPoints[i] = data;
+	});
+}
+*/
+
 socket.on("otherPoints_1", function(data) {
-	if (playerNum == 2) {
-		otherPoints = data;
-	}
+	otherPoints[0] = data;
 });
 
 socket.on("otherPoints_2", function(data) {
-	if (playerNum == 1) {
-		otherPoints = data;
-	}
+	otherPoints[1] = data;
+});
+
+socket.on("otherPoints_3", function(data) {
+	otherPoints[2] = data;
 });
 
 socket.on("projectiles", function(data) {
@@ -565,11 +591,7 @@ socket.on("alien", function(data) {
 
 socket.on("playerHurt", function(data) {
 	if (data.hurt) {
-		if (data.plrNum == 1 && plr1) {
-			plr1.damaged();
-		} else if (data.plrNum == 2 && plr2) {
-			plr2.damaged();
-		}
+		players[data.plrNum - 1].damaged();
 	}
 });
 
@@ -582,8 +604,9 @@ socket.on("allPlayersJoined", function(data) {
 socket.on("reset", function(data) {
 	if (data) {
 		//reset players
-		plr1 = new Player(playerNum == 1);
-		plr2 = new Player(playerNum == 2);
+		for (var i = 0; i < PLAYERS_PER_ROOM; ++i) {
+			players[i] = new Player(i + 1, PLAYER_COLORS[i]);
+		}
 		
 		gameOver = 0;
 	}
