@@ -30,7 +30,7 @@ In a web browser (preferably the latest version of Google Chrome), navigate to t
 w or up arrow		- accelerate spaceship forward
 a or left arrow		- turn spaceship left
 d or right arrow	- turn spaceship right
-spacebar			- shoot projectile
+spacebar		- shoot projectile
 ```
 
 ## Known Issues
