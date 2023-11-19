@@ -29,7 +29,8 @@ var io = socket(server);
 const WIDTH = 600;
 const HEIGHT = 600;
 
-const PLAYERS_PER_ROOM = 3;
+//const PLAYERS_PER_ROOM = 3;
+const PLAYERS_PER_ROOM = 2;
 
 const PLR_HIT_COOLDOWN = 2000;
 

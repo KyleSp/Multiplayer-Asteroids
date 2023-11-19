@@ -12,10 +12,13 @@ document.addEventListener("keyup", keyUp, false);
 //constants
 
 //const SERVER = "http://localhost:3000";
-const SERVER = "http://35.2.42.218:3000";
+const SERVER = "http://192.168.1.101:3000";
 
-const PLAYERS_PER_ROOM = 3;
-const PLAYER_COLORS = ["#0000FF", "#00FF00", "#FFFFFF"];
+//const PLAYERS_PER_ROOM = 3;
+//const PLAYER_COLORS = ["#0000FF", "#00FF00", "#FFFFFF"];
+
+const PLAYERS_PER_ROOM = 2;
+const PLAYER_COLORS = ["#0000FF", "#00FF00"]
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;

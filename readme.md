@@ -14,15 +14,19 @@ From [Node.js](https://nodejs.org/en/) download the latest version and follow th
 
 ### Setup of IP Address (Server-Side)
 
-[TODO]
+Get the LAN IP address of the computer that will be the server. On Windows, you can run the command "ipconfig" in your terminal and use the "IPv4 Address". Please update the "SERVER" constant in the "game.js" file with this IP address and use the port "3000", which is the default port number used by the server. For example: "http://192.168.1.101:3000".
 
 ### Running the Server (Server-Side)
 
-Open a console window and navigate to the root directory of where you downloaded this repository ("index.js" should be located here). Then type "node index.js" in the console and the server should be running. To verify it is running correctly, the console should prompt you for the number of players you want per game room. Enter in the number you would like, ranging from one to four.
+Optional: Currently the game will run with two players. Please update the "PLAYERS_PER_ROOM" and "PLAYER_COLORS" constants in the "game.js" file to support more than two players.
+
+Open a console window and navigate to the root directory of where you downloaded this repository ("index.js" should be located here). Then type "node index.js" in the console and the server should be running.
 
 ### Connecting to Server (Client-Side)
 
 In a web browser (preferably the latest version of Google Chrome), navigate to the IP address you setup in the "Setup of IP Address" step in order to connect a client to the server over LAN. You know it has successfully connected if in the client's browser it says "Waiting for Additional Players to Connect...", or the game starts (when the last client joins).
+
+If a client is unable to join the game, please check the browser logs to identify what the issue is.
 
 ## Game Controls
 
